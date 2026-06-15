@@ -48,10 +48,9 @@ router.post('/endpoint', async (req, res) => {
       responseData = { version: '3.0', screen: 'SEARCH', data: {} };
     }
 
-    // Meta expects the response body to be the raw Base64 string (not JSON).
+    // Meta expects JSON: { "encrypted_response": "<base64>" }
     const encrypted = encryptResponse(responseData, aesKey, initialVector);
-    res.set('Content-Type', 'text/plain');
-    return res.send(encrypted);
+    return res.json({ encrypted_response: encrypted });
 
   } catch (err) {
     console.error('[/flow/endpoint]', err.message);

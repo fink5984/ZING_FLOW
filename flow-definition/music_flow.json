@@ -61,14 +61,12 @@
             {
               "id": "1",
               "title": "מרדכי בן דוד",
-              "description": "Mordechai Ben David",
-              "image": "https://example.com/mbd.jpg"
+              "description": "Mordechai Ben David"
             },
             {
               "id": "2",
               "title": "אברהם פריד",
-              "description": "Avraham Fried",
-              "image": "https://example.com/af.jpg"
+              "description": "Avraham Fried"
             }
           ],
           "items": {
@@ -76,8 +74,7 @@
             "properties": {
               "id":          { "type": "string" },
               "title":       { "type": "string" },
-              "description": { "type": "string" },
-              "image":       { "type": "string" }
+              "description": { "type": "string" }
             }
           }
         },
@@ -134,8 +131,7 @@
             {
               "id": "101",
               "title": "אלבום לדוגמה",
-              "description": "2023",
-              "image": "https://example.com/album.jpg"
+              "description": "2023"
             }
           ],
           "items": {
@@ -143,8 +139,7 @@
             "properties": {
               "id":          { "type": "string" },
               "title":       { "type": "string" },
-              "description": { "type": "string" },
-              "image":       { "type": "string" }
+              "description": { "type": "string" }
             }
           }
         }
@@ -201,14 +196,12 @@
             {
               "id": "__download_all__",
               "title": "⬇️ הורד את כל האלבום",
-              "description": "10 שירים",
-              "image": "https://example.com/album.jpg"
+              "description": "10 שירים"
             },
             {
               "id": "5001",
               "title": "אור חדש",
-              "description": "3:45",
-              "image": "https://example.com/album.jpg"
+              "description": "3:45"
             }
           ],
           "items": {
@@ -216,8 +209,7 @@
             "properties": {
               "id":          { "type": "string" },
               "title":       { "type": "string" },
-              "description": { "type": "string" },
-              "image":       { "type": "string" }
+              "description": { "type": "string" }
             }
           }
         }

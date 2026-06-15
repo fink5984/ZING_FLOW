@@ -66,34 +66,28 @@ function sortByName(items) {
 }
 
 function artistItem(a) {
-  const img = cdnImg(a.images);
   return {
     id:          String(a.id),
     title:       displayName(a),
     description: (a.enName && a.enName !== a.heName) ? a.enName : undefined,
-    ...(img && { image: img }),
   };
 }
 
 function albumItem(a) {
   const year = a.releasedAt ? String(new Date(a.releasedAt).getFullYear()) : '';
-  const img  = cdnImg(a.images);
   return {
     id:          String(a.id),
     title:       displayName(a),
     description: year || undefined,
-    ...(img && { image: img }),
   };
 }
 
 function trackItem(t) {
   const dur = fmtDuration(t.duration);
-  const img = cdnImg(t.album?.images) || cdnImg(t.images);
   return {
     id:          String(t.id),
     title:       displayName(t),
     description: dur || undefined,
-    ...(img && { image: img }),
   };
 }
 
@@ -189,7 +183,6 @@ async function handleDataExchange(flowToken, currentScreen, payload) {
           id:          '__download_all__',
           title:       '⬇️ הורד את כל האלבום',
           description: `${sortedTracks.length} שירים`,
-          ...(albumImg && { image: albumImg }),
         },
         ...sortedTracks.map(trackItem),
       ];
