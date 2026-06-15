@@ -172,7 +172,6 @@ async function getArtistAlbums(artistId) {
         featuredWhere:{ featuredArtists: { some: { id: { equals: id } } } },
         where: {
           artists:   { some: { id: { equals: id } } },
-          genres:    { none: { enName: { contains: 'singles', mode: 'insensitive' } } },
           albumType: { not: { equals: 'RSS' } },
         },
       },

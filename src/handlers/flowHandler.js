@@ -49,7 +49,12 @@ function fmtDuration(seconds) {
 }
 
 function cdnImg(images) {
-  return images?.cdnMedium || images?.cdnSmall || images?.cdnLarge || '';
+  const url = images?.cdnMedium || images?.cdnSmall || images?.cdnLarge || null;
+  return url || '';
+}
+
+function logImg(context, url) {
+  console.log(`[handler] img(${context}):`, url ? url.substring(0, 90) : 'null');
 }
 
 function displayName(obj) {
@@ -67,6 +72,7 @@ function sortByName(items) {
 
 function artistItem(a) {
   const img = cdnImg(a.images);
+  logImg(`artist:${a.id}`, img);
   const item = {
     id:          String(a.id),
     title:       displayName(a),
@@ -76,13 +82,16 @@ function artistItem(a) {
   return item;
 }
 
-function albumItem(a) {
-  const year = a.releasedAt ? String(new Date(a.releasedAt).getFullYear()) : '';
-  const img  = cdnImg(a.images);
+/** type: 'album' | 'single' */
+function albumItem(a, type) {
+  const year      = a.releasedAt ? String(new Date(a.releasedAt).getFullYear()) : '';
+  const img       = cdnImg(a.images);
+  const typeLabel = type === 'single' ? 'סינגל' : 'אלבום';
+  logImg(`album:${a.id}`, img);
   const item = {
     id:          String(a.id),
     title:       displayName(a),
-    description: year || undefined,
+    description: [typeLabel, year].filter(Boolean).join(' | ') || undefined,
   };
   if (img) item.image = img;
   return item;
@@ -125,17 +134,41 @@ async function handleDataExchange(flowToken, currentScreen, payload) {
 
     // ── 1. Search → return artist list ──────────────────────────────────────
     case 'SEARCH': {
-      const query   = (payload.artist_search || '').trim();
+      const query = (payload.artist_search || '').trim();
       console.log(`[handler] SEARCH query="${query}"`);
-      const all     = await getAllArtists(query);
-      console.log(`[handler] SEARCH → found ${all.length} artists`);
+      let all = await getAllArtists(query);
+      console.log(`[handler] SEARCH → found ${all.length} artists (server)`);
+
+      // Fuzzy fallback: if server returns 0 and query has multiple words,
+      // fetch everything and filter locally by each word separately.
+      if (all.length === 0 && query.length > 0) {
+        const words = query.split(/\s+/).filter(w => w.length >= 2);
+        if (words.length > 0) {
+          console.log(`[handler] SEARCH fuzzy fallback, words=${JSON.stringify(words)}`);
+          const everything = await getAllArtists('');
+          all = everything.filter(a => {
+            const name = ((a.heName || '') + ' ' + (a.enName || '')).toLowerCase();
+            return words.some(w => name.includes(w.toLowerCase()));
+          });
+          console.log(`[handler] SEARCH fuzzy → ${all.length} artists`);
+        }
+      }
+
+      // No results at all → show friendly message item
+      if (all.length === 0) {
+        return screen('ARTIST_LIST', {
+          artists: [{ id: '__no_results__', title: '🔍 לא נמצאו תוצאות', description: `נסה שם אחר (חיפשת: "${query}")` }],
+          subtitle: 'לא נמצאו אמנים',
+        });
+      }
+
       const sorted  = sortByName(all);
-      const display = sorted.slice(0, 50);             // cap for Flow UI
+      const display = sorted.slice(0, 50);
 
       setSession(flowToken, { artists: display });
 
       const subtitle = all.length > 50
-        ? `מוצגים 50 מתוך ${all.length} אמנים — צמצם את החיפוש לתוצאות נוספות`
+        ? `מוצגים 50 מתוך ${all.length} אמנים — צמצם את החיפוש`
         : `נמצאו ${all.length} אמנים`;
 
       return screen('ARTIST_LIST', {
@@ -148,7 +181,8 @@ async function handleDataExchange(flowToken, currentScreen, payload) {
     case 'ARTIST_LIST': {
       const artistId = payload.selected_artist;
       console.log(`[handler] ARTIST_LIST → artistId=${artistId}`);
-      if (!artistId) return screen('SEARCH', {});
+      // User clicked the "no results" pseudo-item → go back to SEARCH
+      if (!artistId || artistId === '__no_results__') return screen('SEARCH', {});
 
       const data   = await getArtistAlbums(artistId);
       const artist = data.artist;
@@ -156,23 +190,32 @@ async function handleDataExchange(flowToken, currentScreen, payload) {
 
       // Combine main albums + featured albums, deduplicate
       const seen   = new Set();
-      const albums = [...(artist.featuredAlbums || []), ...(data.albums || [])].filter(a => {
+      const allAlbums = [...(artist.featuredAlbums || []), ...(data.albums || [])].filter(a => {
         if (seen.has(a.id)) return false;
         seen.add(a.id);
         return true;
       });
 
-      const sortedAlbums = sortByName(albums);
+      // Separate albums vs singles by albumType
+      const regularAlbums = allAlbums.filter(a => a.albumType !== 'SINGLE');
+      const singles       = allAlbums.filter(a => a.albumType === 'SINGLE');
+      console.log(`[handler] albums=${regularAlbums.length} singles=${singles.length}`);
+
+      // Sort each group alphabetically, then combine (albums first)
+      const combined = [...sortByName(regularAlbums), ...sortByName(singles)];
 
       setSession(flowToken, {
         artistId,
-        artistName:  displayName(artist),
-        albums:      sortedAlbums,
+        artistName: displayName(artist),
+        albums:     combined,
       });
 
       return screen('ARTIST_ALBUMS', {
         artist_name: displayName(artist),
-        albums:      sortedAlbums.map(albumItem),
+        albums:      [
+          ...sortByName(regularAlbums).map(a => albumItem(a, 'album')),
+          ...sortByName(singles).map(a => albumItem(a, 'single')),
+        ],
       });
     }
 
