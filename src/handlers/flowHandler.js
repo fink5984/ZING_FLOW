@@ -58,10 +58,21 @@ function cdnImg(images) {
     images?.cdnSmall, images?.cdnMedium, images?.cdnLarge,
   ].filter(Boolean);
 
-  // Prefer a URL that ends with a known image extension
-  const url = candidates.find(isImageUrl) || candidates[0] || null;
-  if (!url) return '';
-  try { return encodeURI(url); } catch { return url; }
+  // Prefer URLs with a known image extension
+  const raw = candidates.find(isImageUrl) || candidates[0] || null;
+  if (!raw) return '';
+
+  // Encode non-ASCII chars in the path (handles Hebrew filenames)
+  let encoded;
+  try { encoded = encodeURI(raw); } catch { encoded = raw; }
+
+  // Proxy through our server so WhatsApp can always fetch the image,
+  // even if jewishmusic.fm blocks Meta's servers.
+  const base = (process.env.BASE_URL || '').replace(/\/$/, '');
+  if (base) {
+    return `${base}/flow/img?u=${encodeURIComponent(encoded)}`;
+  }
+  return encoded;
 }
 
 function logImg(context, url) {
@@ -213,8 +224,11 @@ async function handleDataExchange(flowToken, currentScreen, payload) {
       const singles       = allAlbums.filter(a => a.albumType === 'SINGLE');
       console.log(`[handler] albums=${regularAlbums.length} singles=${singles.length}`);
 
-      // Sort each group alphabetically, then combine (albums first)
-      const combined = [...sortByName(regularAlbums), ...sortByName(singles)];
+      // Sort each group alphabetically, cap combined at 50 to keep payload small
+      const sortedAlb = sortByName(regularAlbums);
+      const sortedSng = sortByName(singles);
+      const MAX_ALBUMS = 50;
+      const combined = [...sortedAlb, ...sortedSng].slice(0, MAX_ALBUMS);
 
       setSession(flowToken, {
         artistId,
@@ -222,12 +236,14 @@ async function handleDataExchange(flowToken, currentScreen, payload) {
         albums:     combined,
       });
 
+      const displayAlbums = [
+        ...sortedAlb.map(a => albumItem(a, 'album')),
+        ...sortedSng.map(a => albumItem(a, 'single')),
+      ].slice(0, MAX_ALBUMS);
+
       return screen('ARTIST_ALBUMS', {
         artist_name: displayName(artist),
-        albums:      [
-          ...sortByName(regularAlbums).map(a => albumItem(a, 'album')),
-          ...sortByName(singles).map(a => albumItem(a, 'single')),
-        ],
+        albums:      displayAlbums,
       });
     }
 

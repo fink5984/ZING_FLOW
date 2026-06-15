@@ -1,6 +1,7 @@
 'use strict';
 
 const express = require('express');
+const axios   = require('axios');
 const { decryptRequest, encryptResponse }        = require('../crypto/flowCrypto');
 const { handleInit, handlePing, handleDataExchange, setSession } = require('../handlers/flowHandler');
 const { sendTextMessage }                        = require('../whatsapp/sendMessage');
@@ -166,6 +167,80 @@ router.post('/send', async (req, res) => {
   } catch (err) {
     console.error('[/flow/send]', err.response?.data || err.message);
     res.status(500).json({ error: err.response?.data || err.message });
+  }
+});
+
+// ─── GET /flow/img  (image proxy so WhatsApp can load jewishmusic.fm images) ─
+// WhatsApp's servers may be blocked by jewishmusic.fm.
+// We proxy the image through our Railway server which is publicly accessible.
+//
+// Security: only proxies images from the two allowed domains.
+
+const PROXY_ALLOW = ['jewishmusic.fm', 'd3t3ozftmdmh3i.cloudfront.net'];
+
+router.get('/img', async (req, res) => {
+  const rawUrl = req.query.u;
+  if (!rawUrl) return res.status(400).end();
+
+  let targetUrl;
+  try { targetUrl = decodeURIComponent(rawUrl); } catch { return res.status(400).end(); }
+
+  // Security: only allow the two permitted hosts
+  let host;
+  try { host = new URL(targetUrl).hostname; } catch { return res.status(400).end(); }
+  if (!PROXY_ALLOW.some(h => host === h || host.endsWith('.' + h))) {
+    return res.status(403).end();
+  }
+
+  try {
+    const upstream = await axios.get(targetUrl, {
+      responseType: 'stream',
+      timeout: 8000,
+      headers: { 'User-Agent': 'Mozilla/5.0' },
+    });
+    res.set('Content-Type',  upstream.headers['content-type']  || 'image/jpeg');
+    res.set('Cache-Control', 'public, max-age=86400');  // cache 24 h
+    upstream.data.pipe(res);
+  } catch (err) {
+    console.error('[img proxy] error:', err.message);
+    res.status(502).end();
+  }
+});
+
+// ─── GET /flow/img  (image proxy so WhatsApp can load jewishmusic.fm images) ─
+// WhatsApp's servers may be blocked by jewishmusic.fm.
+// We proxy the image through our Railway server which is publicly accessible.
+//
+// Security: only proxies images from the two allowed domains.
+
+const PROXY_ALLOW = ['jewishmusic.fm', 'd3t3ozftmdmh3i.cloudfront.net'];
+
+router.get('/img', async (req, res) => {
+  const rawUrl = req.query.u;
+  if (!rawUrl) return res.status(400).end();
+
+  let targetUrl;
+  try { targetUrl = decodeURIComponent(rawUrl); } catch { return res.status(400).end(); }
+
+  // Security: only allow the two permitted hosts
+  let host;
+  try { host = new URL(targetUrl).hostname; } catch { return res.status(400).end(); }
+  if (!PROXY_ALLOW.some(h => host === h || host.endsWith('.' + h))) {
+    return res.status(403).end();
+  }
+
+  try {
+    const upstream = await axios.get(targetUrl, {
+      responseType: 'stream',
+      timeout: 8000,
+      headers: { 'User-Agent': 'Mozilla/5.0' },
+    });
+    res.set('Content-Type',  upstream.headers['content-type']  || 'image/jpeg');
+    res.set('Cache-Control', 'public, max-age=86400');  // cache 24 h
+    upstream.data.pipe(res);
+  } catch (err) {
+    console.error('[img proxy] error:', err.message);
+    res.status(502).end();
   }
 });
 
