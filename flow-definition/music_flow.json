@@ -1,0 +1,284 @@
+{
+  "version": "6.3",
+  "data_api_version": "3.0",
+  "routing_model": {
+    "SEARCH":        ["ARTIST_LIST"],
+    "ARTIST_LIST":   ["ARTIST_ALBUMS"],
+    "ARTIST_ALBUMS": ["ALBUM_TRACKS"],
+    "ALBUM_TRACKS":  ["SUCCESS"]
+  },
+  "screens": [
+
+    {
+      "id": "SEARCH",
+      "title": "Zing Music 🎵",
+      "layout": {
+        "type": "SingleColumnLayout",
+        "children": [
+          {
+            "type": "TextHeading",
+            "text": "חיפוש אמן"
+          },
+          {
+            "type": "TextBody",
+            "text": "הזן שם האמן שאתה מחפש (בעברית או באנגלית)"
+          },
+          {
+            "type": "Form",
+            "name": "search_form",
+            "children": [
+              {
+                "type": "TextInput",
+                "name": "artist_search",
+                "label": "שם האמן",
+                "input-type": "text",
+                "required": false,
+                "helper-text": "ניתן להשאיר ריק לצפייה בכל האמנים"
+              },
+              {
+                "type": "Footer",
+                "label": "חפש",
+                "on-click-action": {
+                  "name": "data_exchange",
+                  "payload": {
+                    "artist_search": "${form.artist_search}"
+                  }
+                }
+              }
+            ]
+          }
+        ]
+      }
+    },
+
+    {
+      "id": "ARTIST_LIST",
+      "title": "בחר אמן",
+      "data": {
+        "artists": {
+          "type": "array",
+          "__example__": [
+            { "id": "1", "title": "מרדכי בן דוד", "description": "Mordechai Ben David" },
+            { "id": "2", "title": "אברהם פריד",   "description": "Avraham Fried"        }
+          ],
+          "items": {
+            "type": "object",
+            "properties": {
+              "id":          { "type": "string" },
+              "title":       { "type": "string" },
+              "description": { "type": "string" }
+            }
+          }
+        },
+        "subtitle": {
+          "type": "string",
+          "__example__": "נמצאו 120 אמנים"
+        }
+      },
+      "layout": {
+        "type": "SingleColumnLayout",
+        "children": [
+          {
+            "type": "TextBody",
+            "text": "${data.subtitle}"
+          },
+          {
+            "type": "Form",
+            "name": "artist_form",
+            "children": [
+              {
+                "type": "RadioButtonsGroup",
+                "name": "selected_artist",
+                "label": "אמנים",
+                "required": true,
+                "data-source": "${data.artists}"
+              },
+              {
+                "type": "Footer",
+                "label": "בחר אמן",
+                "on-click-action": {
+                  "name": "data_exchange",
+                  "payload": {
+                    "selected_artist": "${form.selected_artist}"
+                  }
+                }
+              }
+            ]
+          }
+        ]
+      }
+    },
+
+    {
+      "id": "ARTIST_ALBUMS",
+      "title": "אלבומים",
+      "data": {
+        "artist_name": {
+          "type": "string",
+          "__example__": "מרדכי בן דוד"
+        },
+        "artist_image": {
+          "type": "string",
+          "__example__": "https://example.com/artist.jpg"
+        },
+        "albums": {
+          "type": "array",
+          "__example__": [
+            { "id": "101", "title": "אלבום לדוגמה", "description": "2023" }
+          ],
+          "items": {
+            "type": "object",
+            "properties": {
+              "id":          { "type": "string" },
+              "title":       { "type": "string" },
+              "description": { "type": "string" }
+            }
+          }
+        }
+      },
+      "layout": {
+        "type": "SingleColumnLayout",
+        "children": [
+          {
+            "type": "TextHeading",
+            "text": "${data.artist_name}"
+          },
+          {
+            "type": "Image",
+            "src": "${data.artist_image}",
+            "height": 220,
+            "scale-type": "cover",
+            "alt-text": "${data.artist_name}"
+          },
+          {
+            "type": "Form",
+            "name": "album_form",
+            "children": [
+              {
+                "type": "RadioButtonsGroup",
+                "name": "selected_album",
+                "label": "בחר אלבום",
+                "required": true,
+                "data-source": "${data.albums}"
+              },
+              {
+                "type": "Footer",
+                "label": "בחר אלבום",
+                "on-click-action": {
+                  "name": "data_exchange",
+                  "payload": {
+                    "selected_album": "${form.selected_album}"
+                  }
+                }
+              }
+            ]
+          }
+        ]
+      }
+    },
+
+    {
+      "id": "ALBUM_TRACKS",
+      "title": "שירים",
+      "data": {
+        "album_name": {
+          "type": "string",
+          "__example__": "אלבום לדוגמה"
+        },
+        "album_image": {
+          "type": "string",
+          "__example__": "https://example.com/album.jpg"
+        },
+        "album_id": {
+          "type": "string",
+          "__example__": "101"
+        },
+        "tracks": {
+          "type": "array",
+          "__example__": [
+            { "id": "__download_all__", "title": "⬇️ הורד את כל האלבום", "description": "10 שירים" },
+            { "id": "5001", "title": "1. שיר לדוגמה", "description": "3:45" }
+          ],
+          "items": {
+            "type": "object",
+            "properties": {
+              "id":          { "type": "string" },
+              "title":       { "type": "string" },
+              "description": { "type": "string" }
+            }
+          }
+        }
+      },
+      "layout": {
+        "type": "SingleColumnLayout",
+        "children": [
+          {
+            "type": "TextHeading",
+            "text": "${data.album_name}"
+          },
+          {
+            "type": "Image",
+            "src": "${data.album_image}",
+            "height": 220,
+            "scale-type": "cover",
+            "alt-text": "${data.album_name}"
+          },
+          {
+            "type": "TextCaption",
+            "text": "בחר שיר להאזנה, או בחר 'הורד את כל האלבום'"
+          },
+          {
+            "type": "Form",
+            "name": "tracks_form",
+            "children": [
+              {
+                "type": "RadioButtonsGroup",
+                "name": "selected_track",
+                "label": "שירים",
+                "required": true,
+                "data-source": "${data.tracks}"
+              },
+              {
+                "type": "Footer",
+                "label": "שלח",
+                "on-click-action": {
+                  "name": "data_exchange",
+                  "payload": {
+                    "selected_track": "${form.selected_track}",
+                    "album_id":       "${data.album_id}"
+                  }
+                }
+              }
+            ]
+          }
+        ]
+      }
+    },
+
+    {
+      "id": "SUCCESS",
+      "title": "נשלח! ✅",
+      "terminal": true,
+      "data": {
+        "message": {
+          "type": "string",
+          "__example__": "🎵 השיר ישלח אליך עוד רגע..."
+        }
+      },
+      "layout": {
+        "type": "SingleColumnLayout",
+        "children": [
+          {
+            "type": "TextHeading",
+            "text": "תודה!"
+          },
+          {
+            "type": "TextBody",
+            "text": "${data.message}"
+          }
+        ]
+      }
+    }
+
+  ]
+}
