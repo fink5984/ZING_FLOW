@@ -13,6 +13,7 @@
  * so the server always knows who to send audio files to.
  */
 
+const axios = require('axios');
 const { getAllArtists, getArtistAlbums, getAlbumDetail } = require('../api/zingApi');
 const { sendTrackToUser, sendAlbumToUser }               = require('../whatsapp/sendMessage');
 
@@ -52,36 +53,62 @@ function isImageUrl(u) {
   return u && /\.(jpg|jpeg|png|gif|webp)(\?|$)/i.test(u);
 }
 
+/**
+ * Returns the best (smallest) raw image URL from an API images object,
+ * or null if none is available. No proxy — WhatsApp Flows requires Base64,
+ * not a URL, for RadioButtonsGroup items.
+ */
 function cdnImg(images) {
+  if (!images) return null;
   const candidates = [
-    images?.small, images?.medium, images?.large,
-    images?.cdnSmall, images?.cdnMedium, images?.cdnLarge,
-  ].filter(Boolean);
-
-  // Prefer URLs with a known image extension
-  const raw = candidates.find(isImageUrl) || candidates[0] || null;
-  if (!raw) return '';
-
-  // If URL already contains percent-encoded chars, don't re-encode.
-  // Otherwise encode non-ASCII (e.g. raw Hebrew) with encodeURI.
-  let safeUrl;
+    images.small, images.cdnSmall,
+    images.medium, images.cdnMedium,
+    images.large, images.cdnLarge,
+  ].filter(isImageUrl);
+  const raw = candidates[0] || null;
+  if (!raw) return null;
   try {
-    safeUrl = raw.includes('%') ? raw : encodeURI(raw);
+    return raw.includes('%') ? raw : encodeURI(raw);
   } catch {
-    safeUrl = raw;
+    return raw;
   }
-
-  // Proxy through our server so WhatsApp can always fetch the image.
-  const base = (process.env.BASE_URL || '').replace(/\/$/, '');
-  if (base) {
-    return `${base}/flow/img?u=${encodeURIComponent(safeUrl)}`;
-  }
-  return safeUrl;
 }
 
-function logImg(context, url) {
-  // Log full URL (no truncation) so we can diagnose
-  console.log(`[handler] img(${context}):`, url || 'null');
+// ─── Image fetch + Base64 cache ───────────────────────────────────────────────
+// WhatsApp Flows RadioButtonsGroup requires `image` to be Base64-encoded image
+// data, NOT a URL. We fetch images server-side and cache the Base64 result.
+
+const _imgCache = new Map();
+const IMG_CACHE_TTL_MS = 60 * 60 * 1000; // 1 hour
+
+async function fetchBase64(url) {
+  if (!url) return null;
+  const now = Date.now();
+  const hit = _imgCache.get(url);
+  if (hit && hit.exp > now) return hit.b64;
+  try {
+    const resp = await axios.get(url, {
+      responseType: 'arraybuffer',
+      timeout: 5000,
+      headers: { 'User-Agent': 'Mozilla/5.0' },
+    });
+    const b64 = Buffer.from(resp.data).toString('base64');
+    _imgCache.set(url, { b64, exp: now + IMG_CACHE_TTL_MS });
+    console.log(`[img] cached ${Math.round(resp.data.byteLength / 1024)}KB ← ${url.substring(0, 70)}`);
+    return b64;
+  } catch (err) {
+    console.warn('[img] fetch failed:', err.message, '←', url.substring(0, 70));
+    return null;
+  }
+}
+
+/**
+ * Fetch Base64 for an array of URLs in parallel, capped at `limit` items.
+ * Returns an array of the same length (null for failures / skipped items).
+ */
+async function fetchAllBase64(urls, limit = 20) {
+  const capped = urls.slice(0, limit);
+  return Promise.all(capped.map(fetchBase64));
 }
 
 function displayName(obj) {
@@ -97,51 +124,37 @@ function sortByName(items) {
   });
 }
 
-function artistItem(a, idx) {
-  const img = cdnImg(a.images);
-  logImg(`artist:${a.id}`, img);
-
-  // TEST: The FIRST artist always gets our own /flow/t.png so we can verify
-  // whether WhatsApp's WebView can load any image from our Railway domain at all.
-  // If a red dot appears next to the first artist but not the others → domain works,
-  // the problem is the proxy URL format. Remove this once images are confirmed working.
-  const base = (process.env.BASE_URL || '').replace(/\/$/, '');
-  const testImg = idx === 0 && base ? `${base}/flow/t.png` : img;
-
+function artistItem(a, b64) {
   const item = {
     id:          String(a.id),
     title:       displayName(a),
     description: (a.enName && a.enName !== a.heName) ? a.enName : undefined,
   };
-  if (testImg) item.image = testImg;
+  if (b64) item.image = b64;
   return item;
 }
 
 /** type: 'album' | 'single' */
-function albumItem(a, type) {
+function albumItem(a, type, b64) {
   const year      = a.releasedAt ? String(new Date(a.releasedAt).getFullYear()) : '';
-  const img       = cdnImg(a.images);
   const typeLabel = type === 'single' ? 'סינגל' : 'אלבום';
-  logImg(`album:${a.id}`, img);
   const item = {
     id:          String(a.id),
     title:       displayName(a),
     description: [typeLabel, year].filter(Boolean).join(' | ') || undefined,
   };
-  if (img) item.image = img;
+  if (b64) item.image = b64;
   return item;
 }
 
 function trackItem(t) {
   const dur = fmtDuration(t.duration);
-  const img = cdnImg(t.album?.images) || cdnImg(t.images);
-  const item = {
+  // Track lists can be 30+ items; omitting images keeps the response small.
+  return {
     id:          String(t.id),
     title:       displayName(t),
     description: dur || undefined,
   };
-  if (img) item.image = img;
-  return item;
 }
 
 // ─── Screen response builders ─────────────────────────────────────────────────
@@ -198,16 +211,21 @@ async function handleDataExchange(flowToken, currentScreen, payload) {
       }
 
       const sorted  = sortByName(all);
-      const display = sorted.slice(0, 50);
+      const MAX_ARTISTS = 20; // RadioButtonsGroup cap
+      const display = sorted.slice(0, MAX_ARTISTS);
 
       setSession(flowToken, { artists: display });
 
-      const subtitle = all.length > 50
-        ? `מוצגים 50 מתוך ${all.length} אמנים — צמצם את החיפוש`
+      const subtitle = all.length > MAX_ARTISTS
+        ? `מוצגים ${MAX_ARTISTS} מתוך ${all.length} אמנים — צמצם את החיפוש`
         : `נמצאו ${all.length} אמנים`;
 
+      // Fetch images as Base64 in parallel (WhatsApp requires Base64, not URLs)
+      const imgUrls = display.map(a => cdnImg(a.images));
+      const b64s    = await fetchAllBase64(imgUrls, MAX_ARTISTS);
+
       return screen('ARTIST_LIST', {
-        artists:  display.map((a, i) => artistItem(a, i)),
+        artists:  display.map((a, i) => artistItem(a, b64s[i])),
         subtitle,
       });
     }
@@ -248,9 +266,20 @@ async function handleDataExchange(flowToken, currentScreen, payload) {
         albums:     combined,
       });
 
+      const MAX_IMG = 20; // max images to fetch (RadioButtonsGroup cap)
+      const combined20 = combined.slice(0, MAX_IMG);
+      const imgUrls20  = combined20.map(a => cdnImg(a.images));
+      const b64s20     = await fetchAllBase64(imgUrls20, MAX_IMG);
+
       const displayAlbums = [
-        ...sortedAlb.map(a => albumItem(a, 'album')),
-        ...sortedSng.map(a => albumItem(a, 'single')),
+        ...sortedAlb.map(a => {
+          const idx = combined20.indexOf(a);
+          return albumItem(a, 'album', idx >= 0 ? b64s20[idx] : null);
+        }),
+        ...sortedSng.map(a => {
+          const idx = combined20.indexOf(a);
+          return albumItem(a, 'single', idx >= 0 ? b64s20[idx] : null);
+        }),
       ].slice(0, MAX_ALBUMS);
 
       return screen('ARTIST_ALBUMS', {
@@ -277,13 +306,14 @@ async function handleDataExchange(flowToken, currentScreen, payload) {
       });
 
       // Prepend a "Download all" pseudo-track at the top
-      const albumImg   = cdnImg(album.images);
+      const albumImgUrl = cdnImg(album.images);
+      const albumImgB64 = await fetchBase64(albumImgUrl);
       const dlItem = {
         id:          '__download_all__',
         title:       '⬇️ הורד את כל האלבום',
         description: `${sortedTracks.length} שירים`,
       };
-      if (albumImg) dlItem.image = albumImg;
+      if (albumImgB64) dlItem.image = albumImgB64;
 
       const trackItems = [dlItem, ...sortedTracks.map(trackItem)];
 
