@@ -48,16 +48,26 @@ function fmtDuration(seconds) {
   return `${Math.floor(seconds / 60)}:${String(seconds % 60).padStart(2, '0')}`;
 }
 
+function isImageUrl(u) {
+  return u && /\.(jpg|jpeg|png|gif|webp)(\?|$)/i.test(u);
+}
+
 function cdnImg(images) {
-  // Prefer WordPress URLs (publicly accessible .jpg) over Cloudinary CDN
-  const url = images?.small || images?.medium || images?.large
-           || images?.cdnSmall || images?.cdnMedium || images?.cdnLarge || null;
+  const candidates = [
+    images?.small, images?.medium, images?.large,
+    images?.cdnSmall, images?.cdnMedium, images?.cdnLarge,
+  ].filter(Boolean);
+
+  // Prefer a URL that ends with a known image extension
+  const url = candidates.find(isImageUrl) || candidates[0] || null;
   if (!url) return '';
-  // Encode Hebrew characters (and other non-ASCII) in the URL path
   try { return encodeURI(url); } catch { return url; }
 }
 
 function logImg(context, url) {
+  // Log full URL (no truncation) so we can diagnose
+  console.log(`[handler] img(${context}):`, url || 'null');
+}
   console.log(`[handler] img(${context}):`, url ? url.substring(0, 90) : 'null');
 }
 
