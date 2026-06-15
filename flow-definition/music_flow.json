@@ -62,13 +62,13 @@
               "id": "1",
               "title": "מרדכי בן דוד",
               "description": "Mordechai Ben David",
-              "image": { "src": "https://example.com/mbd.jpg" }
+              "image": "https://example.com/mbd.jpg"
             },
             {
               "id": "2",
               "title": "אברהם פריד",
               "description": "Avraham Fried",
-              "image": { "src": "https://example.com/af.jpg" }
+              "image": "https://example.com/af.jpg"
             }
           ],
           "items": {
@@ -77,10 +77,7 @@
               "id":          { "type": "string" },
               "title":       { "type": "string" },
               "description": { "type": "string" },
-              "image": {
-                "type": "object",
-                "properties": { "src": { "type": "string" } }
-              }
+              "image":       { "type": "string" }
             }
           }
         },
@@ -138,7 +135,7 @@
               "id": "101",
               "title": "אלבום לדוגמה",
               "description": "2023",
-              "image": { "src": "https://example.com/album.jpg" }
+              "image": "https://example.com/album.jpg"
             }
           ],
           "items": {
@@ -147,10 +144,7 @@
               "id":          { "type": "string" },
               "title":       { "type": "string" },
               "description": { "type": "string" },
-              "image": {
-                "type": "object",
-                "properties": { "src": { "type": "string" } }
-              }
+              "image":       { "type": "string" }
             }
           }
         }
@@ -208,13 +202,13 @@
               "id": "__download_all__",
               "title": "⬇️ הורד את כל האלבום",
               "description": "10 שירים",
-              "image": { "src": "https://example.com/album.jpg" }
+              "image": "https://example.com/album.jpg"
             },
             {
               "id": "5001",
               "title": "אור חדש",
               "description": "3:45",
-              "image": { "src": "https://example.com/album.jpg" }
+              "image": "https://example.com/album.jpg"
             }
           ],
           "items": {
@@ -223,10 +217,7 @@
               "id":          { "type": "string" },
               "title":       { "type": "string" },
               "description": { "type": "string" },
-              "image": {
-                "type": "object",
-                "properties": { "src": { "type": "string" } }
-              }
+              "image":       { "type": "string" }
             }
           }
         }

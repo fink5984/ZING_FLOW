@@ -71,7 +71,7 @@ function artistItem(a) {
     id:          String(a.id),
     title:       displayName(a),
     description: (a.enName && a.enName !== a.heName) ? a.enName : undefined,
-    ...(img && { image: { src: img } }),
+    ...(img && { image: img }),
   };
 }
 
@@ -82,7 +82,7 @@ function albumItem(a) {
     id:          String(a.id),
     title:       displayName(a),
     description: year || undefined,
-    ...(img && { image: { src: img } }),
+    ...(img && { image: img }),
   };
 }
 
@@ -93,7 +93,7 @@ function trackItem(t) {
     id:          String(t.id),
     title:       displayName(t),
     description: dur || undefined,
-    ...(img && { image: { src: img } }),
+    ...(img && { image: img }),
   };
 }
 
@@ -189,7 +189,7 @@ async function handleDataExchange(flowToken, currentScreen, payload) {
           id:          '__download_all__',
           title:       '⬇️ הורד את כל האלבום',
           description: `${sortedTracks.length} שירים`,
-          ...(albumImg && { image: { src: albumImg } }),
+          ...(albumImg && { image: albumImg }),
         },
         ...sortedTracks.map(trackItem),
       ];
