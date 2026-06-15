@@ -61,12 +61,14 @@
             {
               "id": "1",
               "title": "מרדכי בן דוד",
-              "description": "Mordechai Ben David"
+              "description": "Mordechai Ben David",
+              "image": "https://firebasestorage.googleapis.com/v0/b/admob-app-id-354922518.appspot.com/o/artists%2Fmbd.jpg?alt=media"
             },
             {
               "id": "2",
               "title": "אברהם פריד",
-              "description": "Avraham Fried"
+              "description": "Avraham Fried",
+              "image": "https://firebasestorage.googleapis.com/v0/b/admob-app-id-354922518.appspot.com/o/artists%2Faf.jpg?alt=media"
             }
           ],
           "items": {
@@ -74,7 +76,8 @@
             "properties": {
               "id":          { "type": "string" },
               "title":       { "type": "string" },
-              "description": { "type": "string" }
+              "description": { "type": "string" },
+              "image":       { "type": "string" }
             }
           }
         },
@@ -131,7 +134,8 @@
             {
               "id": "101",
               "title": "אלבום לדוגמה",
-              "description": "2023"
+              "description": "2023",
+              "image": "https://firebasestorage.googleapis.com/v0/b/admob-app-id-354922518.appspot.com/o/albums%2Fsample.jpg?alt=media"
             }
           ],
           "items": {
@@ -139,7 +143,8 @@
             "properties": {
               "id":          { "type": "string" },
               "title":       { "type": "string" },
-              "description": { "type": "string" }
+              "description": { "type": "string" },
+              "image":       { "type": "string" }
             }
           }
         }
@@ -196,12 +201,14 @@
             {
               "id": "__download_all__",
               "title": "⬇️ הורד את כל האלבום",
-              "description": "10 שירים"
+              "description": "10 שירים",
+              "image": "https://firebasestorage.googleapis.com/v0/b/admob-app-id-354922518.appspot.com/o/albums%2Fsample.jpg?alt=media"
             },
             {
               "id": "5001",
               "title": "אור חדש",
-              "description": "3:45"
+              "description": "3:45",
+              "image": "https://firebasestorage.googleapis.com/v0/b/admob-app-id-354922518.appspot.com/o/albums%2Fsample.jpg?alt=media"
             }
           ],
           "items": {
@@ -209,7 +216,8 @@
             "properties": {
               "id":          { "type": "string" },
               "title":       { "type": "string" },
-              "description": { "type": "string" }
+              "description": { "type": "string" },
+              "image":       { "type": "string" }
             }
           }
         }

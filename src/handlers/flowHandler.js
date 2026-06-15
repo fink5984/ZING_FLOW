@@ -66,29 +66,38 @@ function sortByName(items) {
 }
 
 function artistItem(a) {
-  return {
+  const img = cdnImg(a.images);
+  const item = {
     id:          String(a.id),
     title:       displayName(a),
     description: (a.enName && a.enName !== a.heName) ? a.enName : undefined,
   };
+  if (img) item.image = img;
+  return item;
 }
 
 function albumItem(a) {
   const year = a.releasedAt ? String(new Date(a.releasedAt).getFullYear()) : '';
-  return {
+  const img  = cdnImg(a.images);
+  const item = {
     id:          String(a.id),
     title:       displayName(a),
     description: year || undefined,
   };
+  if (img) item.image = img;
+  return item;
 }
 
 function trackItem(t) {
   const dur = fmtDuration(t.duration);
-  return {
+  const img = cdnImg(t.album?.images) || cdnImg(t.images);
+  const item = {
     id:          String(t.id),
     title:       displayName(t),
     description: dur || undefined,
   };
+  if (img) item.image = img;
+  return item;
 }
 
 // ─── Screen response builders ─────────────────────────────────────────────────
@@ -186,14 +195,14 @@ async function handleDataExchange(flowToken, currentScreen, payload) {
 
       // Prepend a "Download all" pseudo-track at the top
       const albumImg   = cdnImg(album.images);
-      const trackItems = [
-        {
-          id:          '__download_all__',
-          title:       '⬇️ הורד את כל האלבום',
-          description: `${sortedTracks.length} שירים`,
-        },
-        ...sortedTracks.map(trackItem),
-      ];
+      const dlItem = {
+        id:          '__download_all__',
+        title:       '⬇️ הורד את כל האלבום',
+        description: `${sortedTracks.length} שירים`,
+      };
+      if (albumImg) dlItem.image = albumImg;
+
+      const trackItems = [dlItem, ...sortedTracks.map(trackItem)];
 
       return screen('ALBUM_TRACKS', {
         album_name: displayName(album),
