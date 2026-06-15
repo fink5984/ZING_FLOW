@@ -62,17 +62,21 @@ function cdnImg(images) {
   const raw = candidates.find(isImageUrl) || candidates[0] || null;
   if (!raw) return '';
 
-  // Encode non-ASCII chars in the path (handles Hebrew filenames)
-  let encoded;
-  try { encoded = encodeURI(raw); } catch { encoded = raw; }
+  // If URL already contains percent-encoded chars, don't re-encode.
+  // Otherwise encode non-ASCII (e.g. raw Hebrew) with encodeURI.
+  let safeUrl;
+  try {
+    safeUrl = raw.includes('%') ? raw : encodeURI(raw);
+  } catch {
+    safeUrl = raw;
+  }
 
-  // Proxy through our server so WhatsApp can always fetch the image,
-  // even if jewishmusic.fm blocks Meta's servers.
+  // Proxy through our server so WhatsApp can always fetch the image.
   const base = (process.env.BASE_URL || '').replace(/\/$/, '');
   if (base) {
-    return `${base}/flow/img?u=${encodeURIComponent(encoded)}`;
+    return `${base}/flow/img?u=${encodeURIComponent(safeUrl)}`;
   }
-  return encoded;
+  return safeUrl;
 }
 
 function logImg(context, url) {

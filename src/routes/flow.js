@@ -179,16 +179,15 @@ router.post('/send', async (req, res) => {
 const PROXY_ALLOW = ['jewishmusic.fm', 'd3t3ozftmdmh3i.cloudfront.net'];
 
 router.get('/img', async (req, res) => {
-  const rawUrl = req.query.u;
-  if (!rawUrl) return res.status(400).end();
-
-  let targetUrl;
-  try { targetUrl = decodeURIComponent(rawUrl); } catch { return res.status(400).end(); }
+  // Express already URL-decodes req.query, so rawUrl is the properly-encoded URL
+  const targetUrl = req.query.u;
+  if (!targetUrl) return res.status(400).end();
 
   // Security: only allow the two permitted hosts
   let host;
   try { host = new URL(targetUrl).hostname; } catch { return res.status(400).end(); }
   if (!PROXY_ALLOW.some(h => host === h || host.endsWith('.' + h))) {
+    console.warn('[img proxy] blocked host:', host);
     return res.status(403).end();
   }
 
@@ -198,11 +197,13 @@ router.get('/img', async (req, res) => {
       timeout: 8000,
       headers: { 'User-Agent': 'Mozilla/5.0' },
     });
-    res.set('Content-Type',  upstream.headers['content-type']  || 'image/jpeg');
-    res.set('Cache-Control', 'public, max-age=86400');  // cache 24 h
+    const ct = upstream.headers['content-type'] || 'image/jpeg';
+    console.log(`[img proxy] 200 ${ct} ← ${targetUrl.substring(0, 80)}`);
+    res.set('Content-Type',  ct);
+    res.set('Cache-Control', 'public, max-age=86400');
     upstream.data.pipe(res);
   } catch (err) {
-    console.error('[img proxy] error:', err.message);
+    console.error('[img proxy] error:', err.message, '←', targetUrl.substring(0, 80));
     res.status(502).end();
   }
 });
