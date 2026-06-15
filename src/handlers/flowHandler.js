@@ -97,15 +97,23 @@ function sortByName(items) {
   });
 }
 
-function artistItem(a) {
+function artistItem(a, idx) {
   const img = cdnImg(a.images);
   logImg(`artist:${a.id}`, img);
+
+  // TEST: The FIRST artist always gets our own /flow/t.png so we can verify
+  // whether WhatsApp's WebView can load any image from our Railway domain at all.
+  // If a red dot appears next to the first artist but not the others → domain works,
+  // the problem is the proxy URL format. Remove this once images are confirmed working.
+  const base = (process.env.BASE_URL || '').replace(/\/$/, '');
+  const testImg = idx === 0 && base ? `${base}/flow/t.png` : img;
+
   const item = {
     id:          String(a.id),
     title:       displayName(a),
     description: (a.enName && a.enName !== a.heName) ? a.enName : undefined,
   };
-  if (img) item.image = img;
+  if (testImg) item.image = testImg;
   return item;
 }
 
@@ -199,7 +207,7 @@ async function handleDataExchange(flowToken, currentScreen, payload) {
         : `נמצאו ${all.length} אמנים`;
 
       return screen('ARTIST_LIST', {
-        artists:  display.map(artistItem),
+        artists:  display.map((a, i) => artistItem(a, i)),
         subtitle,
       });
     }

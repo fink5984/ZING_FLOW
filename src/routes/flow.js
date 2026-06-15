@@ -176,16 +176,42 @@ router.post('/send', async (req, res) => {
 //
 // Security: only proxies images from the two allowed domains.
 
+// 1×1 red pixel PNG – used for the /flow/t.png diagnostic endpoint
+const TEST_PNG = Buffer.from(
+  'iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAIAAACQd1PeAAAADklEQVQI12P4' +
+  'z8BQDwAEgAF/QualIQAAAABJRU5ErkJggg==', 'base64');
+
+// Simple diagnostic: open this URL in a phone browser.
+// If it loads → our Railway domain is reachable. If not → Railway is blocked.
+router.get('/t.png', (_req, res) => {
+  res.set('Content-Type', 'image/png');
+  res.set('Cache-Control', 'no-store');
+  res.send(TEST_PNG);
+});
+
 const PROXY_ALLOW = ['jewishmusic.fm', 'd3t3ozftmdmh3i.cloudfront.net'];
 
 router.get('/img', async (req, res) => {
-  // Express already URL-decodes req.query, so rawUrl is the properly-encoded URL
+  // Log every request immediately (even ones without ?u=) so we can see
+  // whether WhatsApp's client is actually calling this endpoint.
+  console.log('[img proxy] HIT', req.url);
+
+  // Add CORS – WhatsApp Flows WebView may load images via fetch(), not <img>
+  res.set('Access-Control-Allow-Origin', '*');
+
+  // Express already URL-decodes req.query, so targetUrl is the properly-encoded URL
   const targetUrl = req.query.u;
-  if (!targetUrl) return res.status(400).end();
+  if (!targetUrl) {
+    console.warn('[img proxy] no ?u= param');
+    return res.status(400).end();
+  }
 
   // Security: only allow the two permitted hosts
   let host;
-  try { host = new URL(targetUrl).hostname; } catch { return res.status(400).end(); }
+  try { host = new URL(targetUrl).hostname; } catch {
+    console.warn('[img proxy] bad URL:', targetUrl);
+    return res.status(400).end();
+  }
   if (!PROXY_ALLOW.some(h => host === h || host.endsWith('.' + h))) {
     console.warn('[img proxy] blocked host:', host);
     return res.status(403).end();
