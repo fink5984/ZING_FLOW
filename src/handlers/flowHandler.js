@@ -49,8 +49,12 @@ function fmtDuration(seconds) {
 }
 
 function cdnImg(images) {
-  const url = images?.cdnMedium || images?.cdnSmall || images?.cdnLarge || null;
-  return url || '';
+  // Prefer WordPress URLs (publicly accessible .jpg) over Cloudinary CDN
+  const url = images?.small || images?.medium || images?.large
+           || images?.cdnSmall || images?.cdnMedium || images?.cdnLarge || null;
+  if (!url) return '';
+  // Encode Hebrew characters (and other non-ASCII) in the URL path
+  try { return encodeURI(url); } catch { return url; }
 }
 
 function logImg(context, url) {

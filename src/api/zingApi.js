@@ -71,7 +71,7 @@ const ARTISTS_QUERY = `
     artists(take: $count, skip: $skip, orderBy: $orderBy, where: $where) {
       __typename
       id enName heName
-      images { __typename cdnSmall cdnMedium cdnLarge }
+      images { __typename small medium large cdnSmall cdnMedium cdnLarge }
       enDesc heDesc
     }
   }
@@ -136,18 +136,18 @@ const ARTIST_ALBUMS_QUERY = `
     albumsCount(where: $countWhere)
     artist(where: { id: $artistId }) {
       __typename id enName heName
-      images { __typename cdnSmall cdnMedium cdnLarge }
+      images { __typename small medium large cdnSmall cdnMedium cdnLarge }
       enDesc heDesc
       featuredAlbums(where: $featuredWhere) {
         __typename id enName heName releasedAt
-        images { __typename cdnSmall cdnMedium cdnLarge }
+        images { __typename small medium large cdnSmall cdnMedium cdnLarge }
         artists { __typename enName heName }
         premium albumType
       }
     }
     albums(take: $count, skip: $skip, orderBy: $orderBy, where: $where) {
       __typename id enName heName releasedAt
-      images { __typename cdnSmall cdnMedium cdnLarge }
+      images { __typename small medium large cdnSmall cdnMedium cdnLarge }
       artists { __typename enName heName }
       premium albumType
     }
@@ -194,17 +194,17 @@ const ALBUM_DETAIL_QUERY = `
     __typename
     album(where: { id: $id }) {
       __typename id enName heName releasedAt
-      images { __typename cdnSmall cdnMedium cdnLarge }
+      images { __typename small medium large cdnSmall cdnMedium cdnLarge }
       albumType rssUrl premium
-      artists { __typename id enName heName images { __typename cdnSmall cdnMedium } }
+      artists { __typename id enName heName images { __typename small cdnSmall cdnMedium } }
       featuredArtists(where: $featuredWhere) {
-        __typename id enName heName images { __typename cdnSmall cdnMedium }
+        __typename id enName heName images { __typename small cdnSmall cdnMedium }
       }
       tracks(orderBy: { trackNumber: $sortOrder }, take: $count, skip: $skip) {
         __typename id enName heName fileName duration
         album {
           __typename id enName heName
-          images { __typename cdnSmall cdnMedium }
+          images { __typename small cdnSmall cdnMedium }
           premium albumType
         }
       }
