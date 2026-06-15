@@ -58,15 +58,29 @@
         "artists": {
           "type": "array",
           "__example__": [
-            { "id": "1", "title": "מרדכי בן דוד", "description": "Mordechai Ben David" },
-            { "id": "2", "title": "אברהם פריד",   "description": "Avraham Fried"        }
+            {
+              "id": "1",
+              "title": "מרדכי בן דוד",
+              "description": "Mordechai Ben David",
+              "image": { "src": "https://example.com/mbd.jpg" }
+            },
+            {
+              "id": "2",
+              "title": "אברהם פריד",
+              "description": "Avraham Fried",
+              "image": { "src": "https://example.com/af.jpg" }
+            }
           ],
           "items": {
             "type": "object",
             "properties": {
               "id":          { "type": "string" },
               "title":       { "type": "string" },
-              "description": { "type": "string" }
+              "description": { "type": "string" },
+              "image": {
+                "type": "object",
+                "properties": { "src": { "type": "string" } }
+              }
             }
           }
         },
@@ -117,21 +131,26 @@
           "type": "string",
           "__example__": "מרדכי בן דוד"
         },
-        "artist_image": {
-          "type": "string",
-          "__example__": "https://example.com/artist.jpg"
-        },
         "albums": {
           "type": "array",
           "__example__": [
-            { "id": "101", "title": "אלבום לדוגמה", "description": "2023" }
+            {
+              "id": "101",
+              "title": "אלבום לדוגמה",
+              "description": "2023",
+              "image": { "src": "https://example.com/album.jpg" }
+            }
           ],
           "items": {
             "type": "object",
             "properties": {
               "id":          { "type": "string" },
               "title":       { "type": "string" },
-              "description": { "type": "string" }
+              "description": { "type": "string" },
+              "image": {
+                "type": "object",
+                "properties": { "src": { "type": "string" } }
+              }
             }
           }
         }
@@ -142,13 +161,6 @@
           {
             "type": "TextHeading",
             "text": "${data.artist_name}"
-          },
-          {
-            "type": "Image",
-            "src": "${data.artist_image}",
-            "height": 220,
-            "scale-type": "cover",
-            "alt-text": "${data.artist_name}"
           },
           {
             "type": "Form",
@@ -185,10 +197,6 @@
           "type": "string",
           "__example__": "אלבום לדוגמה"
         },
-        "album_image": {
-          "type": "string",
-          "__example__": "https://example.com/album.jpg"
-        },
         "album_id": {
           "type": "string",
           "__example__": "101"
@@ -196,15 +204,29 @@
         "tracks": {
           "type": "array",
           "__example__": [
-            { "id": "__download_all__", "title": "⬇️ הורד את כל האלבום", "description": "10 שירים" },
-            { "id": "5001", "title": "1. שיר לדוגמה", "description": "3:45" }
+            {
+              "id": "__download_all__",
+              "title": "⬇️ הורד את כל האלבום",
+              "description": "10 שירים",
+              "image": { "src": "https://example.com/album.jpg" }
+            },
+            {
+              "id": "5001",
+              "title": "אור חדש",
+              "description": "3:45",
+              "image": { "src": "https://example.com/album.jpg" }
+            }
           ],
           "items": {
             "type": "object",
             "properties": {
               "id":          { "type": "string" },
               "title":       { "type": "string" },
-              "description": { "type": "string" }
+              "description": { "type": "string" },
+              "image": {
+                "type": "object",
+                "properties": { "src": { "type": "string" } }
+              }
             }
           }
         }
@@ -215,13 +237,6 @@
           {
             "type": "TextHeading",
             "text": "${data.album_name}"
-          },
-          {
-            "type": "Image",
-            "src": "${data.album_image}",
-            "height": 220,
-            "scale-type": "cover",
-            "alt-text": "${data.album_name}"
           },
           {
             "type": "TextCaption",

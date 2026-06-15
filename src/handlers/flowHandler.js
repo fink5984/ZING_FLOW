@@ -56,29 +56,44 @@ function displayName(obj) {
   return obj?.heName || obj?.enName || '';
 }
 
+/** Sort an array of API objects alphabetically by Hebrew then English name. */
+function sortByName(items) {
+  return [...items].sort((a, b) => {
+    const na = (a.heName || a.enName || '').trim();
+    const nb = (b.heName || b.enName || '').trim();
+    return na.localeCompare(nb, ['he', 'en'], { sensitivity: 'base' });
+  });
+}
+
 function artistItem(a) {
+  const img = cdnImg(a.images);
   return {
     id:          String(a.id),
     title:       displayName(a),
-    description: (a.enName !== a.heName && a.enName) ? a.enName : undefined,
+    description: (a.enName && a.enName !== a.heName) ? a.enName : undefined,
+    ...(img && { image: { src: img } }),
   };
 }
 
 function albumItem(a) {
   const year = a.releasedAt ? String(new Date(a.releasedAt).getFullYear()) : '';
+  const img  = cdnImg(a.images);
   return {
     id:          String(a.id),
     title:       displayName(a),
     description: year || undefined,
+    ...(img && { image: { src: img } }),
   };
 }
 
-function trackItem(t, index) {
+function trackItem(t) {
   const dur = fmtDuration(t.duration);
+  const img = cdnImg(t.album?.images) || cdnImg(t.images);
   return {
     id:          String(t.id),
-    title:       `${index + 1}. ${displayName(t)}`,
+    title:       displayName(t),
     description: dur || undefined,
+    ...(img && { image: { src: img } }),
   };
 }
 
@@ -107,7 +122,8 @@ async function handleDataExchange(flowToken, currentScreen, payload) {
     case 'SEARCH': {
       const query   = (payload.artist_search || '').trim();
       const all     = await getAllArtists(query);
-      const display = all.slice(0, 50);                // cap for Flow UI
+      const sorted  = sortByName(all);
+      const display = sorted.slice(0, 50);             // cap for Flow UI
 
       setSession(flowToken, { artists: display });
 
@@ -137,17 +153,17 @@ async function handleDataExchange(flowToken, currentScreen, payload) {
         return true;
       });
 
+      const sortedAlbums = sortByName(albums);
+
       setSession(flowToken, {
         artistId,
         artistName:  displayName(artist),
-        artistImage: cdnImg(artist.images),
-        albums,
+        albums:      sortedAlbums,
       });
 
       return screen('ARTIST_ALBUMS', {
-        artist_name:  displayName(artist),
-        artist_image: cdnImg(artist.images),
-        albums:       albums.map(albumItem),
+        artist_name: displayName(artist),
+        albums:      sortedAlbums.map(albumItem),
       });
     }
 
@@ -158,24 +174,30 @@ async function handleDataExchange(flowToken, currentScreen, payload) {
 
       const album = await getAlbumDetail(albumId);
 
+      const sortedTracks = sortByName(album.tracks || []);
+
       setSession(flowToken, {
         albumId,
-        albumName:  displayName(album),
-        albumImage: cdnImg(album.images),
-        albumTracks: album.tracks || [],
+        albumName:   displayName(album),
+        albumTracks: sortedTracks,
       });
 
       // Prepend a "Download all" pseudo-track at the top
+      const albumImg   = cdnImg(album.images);
       const trackItems = [
-        { id: '__download_all__', title: '⬇️ הורד את כל האלבום', description: `${(album.tracks || []).length} שירים` },
-        ...(album.tracks || []).map(trackItem),
+        {
+          id:          '__download_all__',
+          title:       '⬇️ הורד את כל האלבום',
+          description: `${sortedTracks.length} שירים`,
+          ...(albumImg && { image: { src: albumImg } }),
+        },
+        ...sortedTracks.map(trackItem),
       ];
 
       return screen('ALBUM_TRACKS', {
-        album_name:  displayName(album),
-        album_image: cdnImg(album.images),
-        album_id:    String(albumId),
-        tracks:      trackItems,
+        album_name: displayName(album),
+        album_id:   String(albumId),
+        tracks:     trackItems,
       });
     }
 
