@@ -13,8 +13,21 @@ const PRIVATE_KEY = (process.env.FLOW_PRIVATE_KEY || '').replace(/\\n/g, '\n');
 // ─── POST /flow/endpoint  (WhatsApp Flow encrypted endpoint) ─────────────────
 
 router.post('/endpoint', async (req, res) => {
+  const body = req.body;
+
+  // ── Unencrypted health-check ping (Meta Flow Builder endpoint checker) ──────
+  // Meta sends a plain-text JSON ping when validating the endpoint URI.
+  // Must respond with plain JSON – NOT encrypted.
+  if (!body.encrypted_aes_key) {
+    if (body.action === 'ping') {
+      return res.json({ data: { status: 'active' } });
+    }
+    return res.status(400).json({ error: 'Missing encrypted fields' });
+  }
+
+  // ── Encrypted request ────────────────────────────────────────────────────────
   try {
-    const { body: flowBody, aesKey, initialVector } = decryptRequest(req.body, PRIVATE_KEY);
+    const { body: flowBody, aesKey, initialVector } = decryptRequest(body, PRIVATE_KEY);
     const { action, flow_token, screen, data } = flowBody;
 
     let responseData;
@@ -26,7 +39,6 @@ router.post('/endpoint', async (req, res) => {
       responseData = await handleInit(flow_token);
 
     } else if (action === 'data_exchange') {
-      // If the client embeds phone in payload (optional), store it
       if (data?.phone) {
         setSession(flow_token, { phone: data.phone });
       }
@@ -36,12 +48,13 @@ router.post('/endpoint', async (req, res) => {
       responseData = { version: '3.0', screen: 'SEARCH', data: {} };
     }
 
+    // Meta expects the response body to be the raw Base64 string (not JSON).
     const encrypted = encryptResponse(responseData, aesKey, initialVector);
-    return res.json({ encrypted_response: encrypted });
+    res.set('Content-Type', 'text/plain');
+    return res.send(encrypted);
 
   } catch (err) {
     console.error('[/flow/endpoint]', err.message);
-    // Must still respond 200 with an error screen so Meta doesn't retry forever
     return res.status(500).json({ error: 'internal_error' });
   }
 });
