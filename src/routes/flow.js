@@ -53,9 +53,11 @@ router.post('/endpoint', async (req, res) => {
 
     console.log(`[endpoint] responding → screen=${responseData?.screen || '?'}`);
 
-    // Meta expects JSON: { "encrypted_response": "<base64>" }
+    // Meta endpoint checker expects plain Base64 text body.
+    // The WhatsApp Flow client (production) also accepts this format.
     const encrypted = encryptResponse(responseData, aesKey, initialVector);
-    return res.json({ encrypted_response: encrypted });
+    res.set('Content-Type', 'text/plain');
+    return res.send(encrypted);
 
   } catch (err) {
     console.error('[endpoint] ERROR:', err.stack || err.message);
