@@ -27,6 +27,7 @@ async function getAccessToken() {
     return tokenCache.accessToken;
   }
 
+  console.log('[zingApi] refreshing access token...');
   const params = new URLSearchParams({
     grant_type:    'refresh_token',
     refresh_token: process.env.ZING_REFRESH_TOKEN,
@@ -40,7 +41,7 @@ async function getAccessToken() {
 
   tokenCache.accessToken = data.access_token;
   tokenCache.expiresAt   = Date.now() + Number(data.expires_in) * 1000;
-
+  console.log('[zingApi] token refreshed, expires in', data.expires_in, 's');
   return tokenCache.accessToken;
 }
 
@@ -104,6 +105,7 @@ async function fetchArtistsPage(query, accessToken, skip, count = 500) {
  * Returns at most 2 000 results to stay practical for display.
  */
 async function getAllArtists(searchQuery = '') {
+  console.log(`[zingApi] getAllArtists query="${searchQuery}"`);
   const accessToken = await getAccessToken();
   const all = [];
   const PAGE = 500;
@@ -112,6 +114,7 @@ async function getAllArtists(searchQuery = '') {
   while (all.length < 2000) {
     const page = await fetchArtistsPage(searchQuery, accessToken, skip, PAGE);
     all.push(...page);
+    console.log(`[zingApi] fetched page skip=${skip}, got ${page.length} artists (total ${all.length})`);
     if (page.length < PAGE) break;
     skip += PAGE;
   }
@@ -152,6 +155,7 @@ const ARTIST_ALBUMS_QUERY = `
 `;
 
 async function getArtistAlbums(artistId) {
+  console.log(`[zingApi] getArtistAlbums id=${artistId}`);
   const accessToken = await getAccessToken();
   const id = Number(artistId);
 
@@ -210,6 +214,7 @@ const ALBUM_DETAIL_QUERY = `
 `;
 
 async function getAlbumDetail(albumId) {
+  console.log(`[zingApi] getAlbumDetail id=${albumId}`);
   const accessToken = await getAccessToken();
 
   const { data } = await axios.post(

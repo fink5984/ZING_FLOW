@@ -30,6 +30,8 @@ router.post('/endpoint', async (req, res) => {
     const { body: flowBody, aesKey, initialVector } = decryptRequest(body, PRIVATE_KEY);
     const { action, flow_token, screen, data } = flowBody;
 
+    console.log(`[endpoint] action=${action} | screen=${screen || '-'} | token=${String(flow_token).substring(0, 20)}`);
+
     let responseData;
 
     if (action === 'ping') {
@@ -45,15 +47,18 @@ router.post('/endpoint', async (req, res) => {
       responseData = await handleDataExchange(flow_token, screen, data || {});
 
     } else {
+      console.warn(`[endpoint] unknown action: ${action}`);
       responseData = { version: '3.0', screen: 'SEARCH', data: {} };
     }
+
+    console.log(`[endpoint] responding → screen=${responseData?.screen || '?'}`);
 
     // Meta expects JSON: { "encrypted_response": "<base64>" }
     const encrypted = encryptResponse(responseData, aesKey, initialVector);
     return res.json({ encrypted_response: encrypted });
 
   } catch (err) {
-    console.error('[/flow/endpoint]', err.message);
+    console.error('[endpoint] ERROR:', err.stack || err.message);
     return res.status(500).json({ error: 'internal_error' });
   }
 });

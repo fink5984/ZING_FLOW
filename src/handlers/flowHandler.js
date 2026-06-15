@@ -110,12 +110,16 @@ async function handlePing() {
 }
 
 async function handleDataExchange(flowToken, currentScreen, payload) {
+  console.log(`[handler] screen=${currentScreen} | payload=${JSON.stringify(payload).substring(0, 150)}`);
+
   switch (currentScreen) {
 
     // ── 1. Search → return artist list ──────────────────────────────────────
     case 'SEARCH': {
       const query   = (payload.artist_search || '').trim();
+      console.log(`[handler] SEARCH query="${query}"`);
       const all     = await getAllArtists(query);
+      console.log(`[handler] SEARCH → found ${all.length} artists`);
       const sorted  = sortByName(all);
       const display = sorted.slice(0, 50);             // cap for Flow UI
 
@@ -134,10 +138,12 @@ async function handleDataExchange(flowToken, currentScreen, payload) {
     // ── 2. Artist selected → return albums ──────────────────────────────────
     case 'ARTIST_LIST': {
       const artistId = payload.selected_artist;
+      console.log(`[handler] ARTIST_LIST → artistId=${artistId}`);
       if (!artistId) return screen('SEARCH', {});
 
       const data   = await getArtistAlbums(artistId);
       const artist = data.artist;
+      console.log(`[handler] artist="${displayName(artist)}" albums=${data.albums?.length}`);
 
       // Combine main albums + featured albums, deduplicate
       const seen   = new Set();
@@ -164,9 +170,11 @@ async function handleDataExchange(flowToken, currentScreen, payload) {
     // ── 3. Album selected → return tracks ───────────────────────────────────
     case 'ARTIST_ALBUMS': {
       const albumId = payload.selected_album;
+      console.log(`[handler] ARTIST_ALBUMS → albumId=${albumId}`);
       if (!albumId) return screen('SEARCH', {});
 
       const album = await getAlbumDetail(albumId);
+      console.log(`[handler] album="${displayName(album)}" tracks=${album.tracks?.length}`);
 
       const sortedTracks = sortByName(album.tracks || []);
 

@@ -29,6 +29,10 @@ function decryptRequest(body, privateKeyPem) {
     throw new Error('Missing required encrypted fields in request body');
   }
 
+  if (!privateKeyPem) {
+    throw new Error('FLOW_PRIVATE_KEY is not set in environment');
+  }
+
   // 1. Decrypt the AES key with our RSA private key (OAEP + SHA-256)
   const aesKey = crypto.privateDecrypt(
     {
@@ -39,15 +43,19 @@ function decryptRequest(body, privateKeyPem) {
     Buffer.from(encrypted_aes_key, 'base64'),
   );
 
+  console.log(`[crypto] AES key length: ${aesKey.length} bytes`);
+
   // 2. Separate ciphertext from the 16-byte GCM auth tag
   const encryptedData = Buffer.from(encrypted_flow_data, 'base64');
   const authTag   = encryptedData.subarray(-16);
   const ciphertext = encryptedData.subarray(0, -16);
 
   const iv = Buffer.from(initial_vector, 'base64');
+  console.log(`[crypto] IV length: ${iv.length} bytes | ciphertext: ${ciphertext.length} bytes`);
 
-  // 3. Decrypt with AES-128-GCM
-  const decipher = crypto.createDecipheriv('aes-128-gcm', aesKey, iv);
+  // 3. Decrypt with AES-GCM (use 128 or 256 based on key length)
+  const algo = aesKey.length === 32 ? 'aes-256-gcm' : 'aes-128-gcm';
+  const decipher = crypto.createDecipheriv(algo, aesKey, iv);
   decipher.setAuthTag(authTag);
 
   const decrypted = Buffer.concat([
@@ -75,7 +83,10 @@ function encryptResponse(responseData, aesKey, initialVector) {
   const iv = Buffer.from(initialVector, 'base64');
   const flippedIv = Buffer.from(iv.map(b => ~b & 0xff));
 
-  const cipher = crypto.createCipheriv('aes-128-gcm', aesKey, flippedIv);
+  const algo = aesKey.length === 32 ? 'aes-256-gcm' : 'aes-128-gcm';
+  console.log(`[crypto] encrypting response with ${algo} | payload: ${JSON.stringify(responseData).substring(0, 100)}`);
+
+  const cipher = crypto.createCipheriv(algo, aesKey, flippedIv);
 
   const encrypted = Buffer.concat([
     cipher.update(JSON.stringify(responseData), 'utf8'),
@@ -83,7 +94,9 @@ function encryptResponse(responseData, aesKey, initialVector) {
   ]);
 
   // Append 16-byte auth tag
-  return Buffer.concat([encrypted, cipher.getAuthTag()]).toString('base64');
+  const result = Buffer.concat([encrypted, cipher.getAuthTag()]).toString('base64');
+  console.log(`[crypto] encrypted response: ${result.length} chars`);
+  return result;
 }
 
 module.exports = { decryptRequest, encryptResponse };
