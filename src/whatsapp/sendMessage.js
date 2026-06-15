@@ -76,6 +76,8 @@ async function sendTextMessage(to, text) {
 
 // ─── High-level helpers ────────────────────────────────────────────────────────
 
+const MAX_AUDIO_BYTES = 16 * 1024 * 1024; // WhatsApp audio limit: 16 MB
+
 /**
  * Download a track from Zing and forward it as a WhatsApp audio message.
  * Returns true on success, false on failure.
@@ -83,14 +85,32 @@ async function sendTextMessage(to, text) {
 async function sendTrackToUser(to, trackId, trackName) {
   try {
     const audioResp = await downloadAudioStream(trackId);
-    const contentType = audioResp.headers['content-type'] || 'audio/mpeg';
+    const contentLength = Number(audioResp.headers['content-length'] || 0);
+    console.log(`[sendTrack] trackId=${trackId} size=${contentLength} bytes`);
+
+    // Pre-check file size if Content-Length is available
+    if (contentLength > MAX_AUDIO_BYTES) {
+      const mb = (contentLength / 1024 / 1024).toFixed(1);
+      console.log(`[sendTrack] trackId=${trackId} too large (${mb}MB), skipping upload`);
+      await sendTextMessage(to, `⚠️ "${trackName}" גדול מדי לשליחה דרך WhatsApp (${mb}MB, מקסימום 16MB)`);
+      return false;
+    }
+
+    const contentType  = audioResp.headers['content-type'] || 'audio/mpeg';
     const safeFilename = `${trackName.replace(/[^\w\u0590-\u05fe -]/g, '_')}.mp3`;
 
     const mediaId = await uploadMedia(audioResp.data, safeFilename, contentType);
     await sendAudioMessage(to, mediaId);
+    console.log(`[sendTrack] trackId=${trackId} sent OK`);
     return true;
   } catch (err) {
-    console.error(`[sendTrack] trackId=${trackId} error:`, err.message);
+    // 413 = file too large for WhatsApp
+    if (err.response?.status === 413) {
+      console.error(`[sendTrack] trackId=${trackId} 413 - file too large`);
+      await sendTextMessage(to, `⚠️ "${trackName}" גדול מדי לשליחה דרך WhatsApp (מקסימום 16MB)`).catch(() => {});
+    } else {
+      console.error(`[sendTrack] trackId=${trackId} error:`, err.message);
+    }
     return false;
   }
 }

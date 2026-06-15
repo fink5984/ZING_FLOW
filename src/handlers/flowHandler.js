@@ -68,8 +68,6 @@ function logImg(context, url) {
   // Log full URL (no truncation) so we can diagnose
   console.log(`[handler] img(${context}):`, url || 'null');
 }
-  console.log(`[handler] img(${context}):`, url ? url.substring(0, 90) : 'null');
-}
 
 function displayName(obj) {
   return obj?.heName || obj?.enName || '';
