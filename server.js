@@ -20,7 +20,7 @@ const PORT = process.env.PORT || 3000;
 app.listen(PORT, () => {
   console.log(`✅  Zing WhatsApp Flow server running on port ${PORT}`);
   console.log(`   POST /flow/endpoint  – WhatsApp Flow encrypted endpoint`);
+  console.log(`   POST /flow/start     – Send flow to a user { phone }`);
   console.log(`   POST /flow/session   – Register phone ↔ flow_token`);
-  console.log(`   POST /flow/send      – Send flow message to a user`);
   console.log(`   GET  /health         – Health check`);
 });

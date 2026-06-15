@@ -70,52 +70,93 @@ router.post('/session', (req, res) => {
   res.json({ ok: true });
 });
 
-// ─── POST /flow/send  (send flow message to a WhatsApp user) ─────────────────
+// ─── POST /flow/start  ──────────────────────────────────────────────────────
+// Simplest way to send the flow to a user.
+// Body: { "phone": "972501234567" }
+// flow_id is read from FLOW_ID env variable.
 //
-// Body: { to: "972501234567", flow_id: "123456789", flow_token: "unique-id" }
-// The server pre-registers the session so audio delivery works later.
+// Optional fields:
+//   flow_token : custom token (defaults to the phone number)
+//   cta_text   : button label (default: "פתח")
+//   body_text  : message body text
 
-router.post('/send', async (req, res) => {
-  const { to, flow_id, flow_token, cta_text } = req.body;
-  if (!to || !flow_id) {
-    return res.status(400).json({ error: 'to and flow_id are required' });
-  }
+async function sendFlowToPhone({ phone, flow_token, cta_text, body_text }) {
+  const flowId = process.env.FLOW_ID;
+  if (!flowId) throw new Error('FLOW_ID is not set in environment variables');
 
-  const token = flow_token || to;   // default: use phone as token
-  setSession(token, { phone: to });
+  const token = flow_token || phone;
 
-  try {
-    const axios = require('axios');
-    const { data } = await axios.post(
-      `https://graph.facebook.com/v19.0/${process.env.PHONE_NUMBER_ID}/messages`,
-      {
-        messaging_product: 'whatsapp',
-        to,
-        type: 'interactive',
-        interactive: {
-          type: 'flow',
-          body:   { text: 'ברוך הבא ל-Zing Music 🎵 חפש את האמן האהוב עליך' },
-          action: {
-            name: 'flow',
-            parameters: {
-              flow_message_version: '3',
-              flow_token:           token,
-              flow_id,
-              flow_cta:             cta_text || 'פתח',
-              flow_action:          'navigate',
-              flow_action_payload:  { screen: 'SEARCH' },
-            },
+  // Pre-register the session so audio delivery works later
+  setSession(token, { phone });
+
+  const axios = require('axios');
+  const { data } = await axios.post(
+    `https://graph.facebook.com/v19.0/${process.env.PHONE_NUMBER_ID}/messages`,
+    {
+      messaging_product: 'whatsapp',
+      to: phone,
+      type: 'interactive',
+      interactive: {
+        type: 'flow',
+        body:   { text: body_text || 'ברוך הבא ל-Zing Music 🎵 חפש את האמן האהוב עליך' },
+        action: {
+          name: 'flow',
+          parameters: {
+            flow_message_version: '3',
+            flow_token:           token,
+            flow_id:              flowId,
+            flow_cta:             cta_text || 'פתח',
+            flow_action:          'navigate',
+            flow_action_payload:  { screen: 'SEARCH' },
           },
         },
       },
-      {
-        headers: {
-          Authorization:  `Bearer ${process.env.WHATSAPP_TOKEN}`,
-          'Content-Type': 'application/json',
-        },
+    },
+    {
+      headers: {
+        Authorization:  `Bearer ${process.env.WHATSAPP_TOKEN}`,
+        'Content-Type': 'application/json',
       },
-    );
-    res.json({ ok: true, message_id: data.messages?.[0]?.id });
+    },
+  );
+
+  return { ok: true, message_id: data.messages?.[0]?.id, flow_token: token };
+}
+
+router.post('/start', async (req, res) => {
+  const phone = req.body.phone || req.body.to;
+  if (!phone) {
+    return res.status(400).json({ error: '"phone" is required' });
+  }
+  try {
+    const result = await sendFlowToPhone({
+      phone,
+      flow_token: req.body.flow_token,
+      cta_text:   req.body.cta_text,
+      body_text:  req.body.body_text,
+    });
+    res.json(result);
+  } catch (err) {
+    console.error('[/flow/start]', err.response?.data || err.message);
+    res.status(500).json({ error: err.response?.data || err.message });
+  }
+});
+
+// ─── POST /flow/send  (backward-compatible alias) ────────────────────────────
+
+router.post('/send', async (req, res) => {
+  const phone = req.body.to || req.body.phone;
+  if (!phone) {
+    return res.status(400).json({ error: '"to" or "phone" is required' });
+  }
+  try {
+    const result = await sendFlowToPhone({
+      phone,
+      flow_token: req.body.flow_token,
+      cta_text:   req.body.cta_text,
+      body_text:  req.body.body_text,
+    });
+    res.json(result);
   } catch (err) {
     console.error('[/flow/send]', err.response?.data || err.message);
     res.status(500).json({ error: err.response?.data || err.message });
