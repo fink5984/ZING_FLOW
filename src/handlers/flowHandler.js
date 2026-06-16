@@ -138,6 +138,21 @@ function makePageChips(total) {
   return chips;
 }
 
+function makeTypeChips() {
+  return [
+    {
+      id: 'albums',
+      title: '📀 אלבומים',
+      'on-select-action': { name: 'data_exchange', payload: { selected_type: 'albums' } },
+    },
+    {
+      id: 'singles',
+      title: '🎵 סינגלים',
+      'on-select-action': { name: 'data_exchange', payload: { selected_type: 'singles' } },
+    },
+  ];
+}
+
 /** Returns one page of artist items (Base64 images) — no nav items in the list. */
 async function buildArtistPage(allArtists, page) {
   const start     = page * PAGE_SIZE;
@@ -313,25 +328,33 @@ async function handleDataExchange(flowToken, currentScreen, payload) {
         return true;
       });
 
-      // Sort: regular albums first, then singles — each group alphabetically
       const sortedAlb = sortByName(deduped.filter(a => a.albumType !== 'SINGLE'));
       const sortedSng = sortByName(deduped.filter(a => a.albumType === 'SINGLE'));
-      const allAlbums = [...sortedAlb, ...sortedSng];
       console.log(`[handler] albums=${sortedAlb.length} singles=${sortedSng.length}`);
+
+      // Default: show albums if available, otherwise singles
+      const defaultType = sortedAlb.length > 0 ? 'albums' : 'singles';
+      const defaultList = defaultType === 'albums' ? sortedAlb : sortedSng;
 
       setSession(flowToken, {
         artistId,
-        artistName: displayName(artist),
-        allAlbums,
-        albumPage:  0,
+        artistName:  displayName(artist),
+        allAlbums:   sortedAlb,
+        allSingles:  sortedSng,
+        contentType: defaultType,
+        albumPage:   0,
       });
 
-      const { items: albumItems, page_chips, show_pager } = await buildAlbumPage(allAlbums, 0);
+      const { items: albumItems, page_chips, show_pager } = await buildAlbumPage(defaultList, 0);
+      const show_type_selector = sortedAlb.length > 0 && sortedSng.length > 0;
       return screen('ARTIST_ALBUMS', {
-        artist_name: displayName(artist),
-        albums:      albumItems,
+        artist_name:       displayName(artist),
+        albums:            albumItems,
         page_chips,
         show_pager,
+        type_chips:        makeTypeChips(),
+        show_type_selector,
+        content_subtitle:  `${defaultList.length} ${defaultType === 'albums' ? 'אלבומים' : 'סינגלים'}`,
       });
     }
 
@@ -340,22 +363,49 @@ async function handleDataExchange(flowToken, currentScreen, payload) {
       const albumId = payload.selected_album;
       console.log(`[handler] ARTIST_ALBUMS → albumId=${albumId}`);
 
-      // Pagination navigation (chip selected, no album)
+      // No album selected — type switch or page navigation
       if (!albumId) {
+        const sess = getSession(flowToken);
+
+        // Type selection (albums ↔ singles)
+        const typeRaw = payload.selected_type;
+        const typeArr = Array.isArray(typeRaw) ? typeRaw : (typeRaw ? [typeRaw] : []);
+        const selType = typeArr.pop() ?? null;
+        if (selType === 'albums' || selType === 'singles') {
+          const list = selType === 'albums' ? (sess.allAlbums || []) : (sess.allSingles || []);
+          setSession(flowToken, { contentType: selType, albumPage: 0 });
+          const { items: albumItems, page_chips, show_pager } = await buildAlbumPage(list, 0);
+          const show_type_selector = (sess.allAlbums || []).length > 0 && (sess.allSingles || []).length > 0;
+          return screen('ARTIST_ALBUMS', {
+            artist_name:       sess.artistName || '',
+            albums:            albumItems,
+            page_chips,
+            show_pager,
+            type_chips:        makeTypeChips(),
+            show_type_selector,
+            content_subtitle:  `${list.length} ${selType === 'albums' ? 'אלבומים' : 'סינגלים'}`,
+          });
+        }
+
+        // Page navigation
         const chipRaw  = payload.selected_page;
         const chipArr  = Array.isArray(chipRaw) ? chipRaw : (chipRaw ? [chipRaw] : []);
         const chipPage = chipArr.filter(c => c !== '__end__').pop() ?? null;
         if (chipPage !== null) {
-          const sess      = getSession(flowToken);
-          const allAlbums = sess.allAlbums || [];
-          const newPage   = Math.max(0, Math.min(Number(chipPage), Math.ceil(allAlbums.length / PAGE_SIZE) - 1));
+          const contentType = sess.contentType || 'albums';
+          const allList = contentType === 'singles' ? (sess.allSingles || []) : (sess.allAlbums || []);
+          const newPage = Math.max(0, Math.min(Number(chipPage), Math.ceil(allList.length / PAGE_SIZE) - 1));
           setSession(flowToken, { albumPage: newPage });
-          const { items: albumItems, page_chips, show_pager } = await buildAlbumPage(allAlbums, newPage);
+          const { items: albumItems, page_chips, show_pager } = await buildAlbumPage(allList, newPage);
+          const show_type_selector = (sess.allAlbums || []).length > 0 && (sess.allSingles || []).length > 0;
           return screen('ARTIST_ALBUMS', {
-            artist_name: sess.artistName || '',
-            albums:      albumItems,
+            artist_name:       sess.artistName || '',
+            albums:            albumItems,
             page_chips,
             show_pager,
+            type_chips:        makeTypeChips(),
+            show_type_selector,
+            content_subtitle:  `${allList.length} ${contentType === 'albums' ? 'אלבומים' : 'סינגלים'}`,
           });
         }
         return screen('SEARCH', {});

@@ -193,6 +193,28 @@
         "show_pager": {
           "type": "boolean",
           "__example__": true
+        },
+        "type_chips": {
+          "type": "array",
+          "__example__": [
+            { "id": "albums",  "title": "\uD83D\uDCC0 \u05D0\u05DC\u05D1\u05D5\u05DE\u05D9\u05DD" },
+            { "id": "singles", "title": "\uD83C\uDFB5 \u05E1\u05D9\u05E0\u05D2\u05DC\u05D9\u05DD" }
+          ],
+          "items": {
+            "type": "object",
+            "properties": {
+              "id":    { "type": "string" },
+              "title": { "type": "string" }
+            }
+          }
+        },
+        "show_type_selector": {
+          "type": "boolean",
+          "__example__": true
+        },
+        "content_subtitle": {
+          "type": "string",
+          "__example__": "5 אלבומים"
         }
       },
       "layout": {
@@ -201,6 +223,19 @@
           {
             "type": "TextHeading",
             "text": "${data.artist_name}"
+          },
+          {
+            "type": "ChipsSelector",
+            "name": "type_nav",
+            "label": "סוג",
+            "min-selected-items": 0,
+            "max-selected-items": 1,
+            "visible": "${data.show_type_selector}",
+            "data-source": "${data.type_chips}"
+          },
+          {
+            "type": "TextCaption",
+            "text": "${data.content_subtitle}"
           },
           {
             "type": "ChipsSelector",
