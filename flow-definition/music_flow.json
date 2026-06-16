@@ -103,11 +103,6 @@
         "show_pager": {
           "type": "boolean",
           "__example__": true
-        },
-        "page_selected": {
-          "type": "array",
-          "__example__": ["0"],
-          "items": { "type": "string" }
         }
       },
       "layout": {
@@ -124,7 +119,6 @@
             "min-selected-items": 0,
             "max-selected-items": 1,
             "visible": "${data.show_pager}",
-            "init-value": "${data.page_selected}",
             "data-source": "${data.page_chips}"
           },
           {
@@ -199,11 +193,6 @@
         "show_pager": {
           "type": "boolean",
           "__example__": true
-        },
-        "page_selected": {
-          "type": "array",
-          "__example__": ["0"],
-          "items": { "type": "string" }
         }
       },
       "layout": {
@@ -220,7 +209,6 @@
             "min-selected-items": 0,
             "max-selected-items": 1,
             "visible": "${data.show_pager}",
-            "init-value": "${data.page_selected}",
             "data-source": "${data.page_chips}"
           },
           {

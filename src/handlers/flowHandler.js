@@ -150,9 +150,8 @@ async function buildArtistPage(allArtists, page) {
   return {
     items,
     subtitle,
-    page_chips:    makePageChips(total),
-    page_selected: [String(page)],
-    show_pager:    totalPages >= 2,
+    page_chips: makePageChips(total),
+    show_pager: totalPages >= 2,
   };
 }
 
@@ -167,9 +166,8 @@ async function buildAlbumPage(allAlbums, page) {
   const totalPages = Math.ceil(allAlbums.length / PAGE_SIZE);
   return {
     items,
-    page_chips:    makePageChips(allAlbums.length),
-    page_selected: [String(page)],
-    show_pager:    totalPages >= 2,
+    page_chips: makePageChips(allAlbums.length),
+    show_pager: totalPages >= 2,
   };
 }
 
@@ -275,8 +273,8 @@ async function handleDataExchange(flowToken, currentScreen, payload) {
       const sorted = sortByName(all);
       setSession(flowToken, { allArtists: sorted, artistPage: 0 });
 
-      const { items: artistItems, subtitle, page_chips, page_selected, show_pager } = await buildArtistPage(sorted, 0);
-      return screen('ARTIST_LIST', { artists: artistItems, subtitle, page_chips, page_selected, show_pager });
+      const { items: artistItems, subtitle, page_chips, show_pager } = await buildArtistPage(sorted, 0);
+      return screen('ARTIST_LIST', { artists: artistItems, subtitle, page_chips, show_pager });
     }
 
     // ── 2. Artist list navigation OR artist selected ────────────────────────
@@ -294,8 +292,8 @@ async function handleDataExchange(flowToken, currentScreen, payload) {
           const allArtists = sess.allArtists || [];
           const newPage    = Math.max(0, Math.min(Number(chipPage), Math.ceil(allArtists.length / PAGE_SIZE) - 1));
           setSession(flowToken, { artistPage: newPage });
-          const { items: artistItems, subtitle, page_chips, page_selected, show_pager } = await buildArtistPage(allArtists, newPage);
-          return screen('ARTIST_LIST', { artists: artistItems, subtitle, page_chips, page_selected, show_pager });
+          const { items: artistItems, subtitle, page_chips, show_pager } = await buildArtistPage(allArtists, newPage);
+          return screen('ARTIST_LIST', { artists: artistItems, subtitle, page_chips, show_pager });
         }
         return screen('SEARCH', {});
       }
@@ -325,12 +323,11 @@ async function handleDataExchange(flowToken, currentScreen, payload) {
         albumPage:  0,
       });
 
-      const { items: albumItems, page_chips, page_selected, show_pager } = await buildAlbumPage(allAlbums, 0);
+      const { items: albumItems, page_chips, show_pager } = await buildAlbumPage(allAlbums, 0);
       return screen('ARTIST_ALBUMS', {
-        artist_name:   displayName(artist),
-        albums:        albumItems,
+        artist_name: displayName(artist),
+        albums:      albumItems,
         page_chips,
-        page_selected,
         show_pager,
       });
     }
@@ -350,12 +347,11 @@ async function handleDataExchange(flowToken, currentScreen, payload) {
           const allAlbums = sess.allAlbums || [];
           const newPage   = Math.max(0, Math.min(Number(chipPage), Math.ceil(allAlbums.length / PAGE_SIZE) - 1));
           setSession(flowToken, { albumPage: newPage });
-          const { items: albumItems, page_chips, page_selected, show_pager } = await buildAlbumPage(allAlbums, newPage);
+          const { items: albumItems, page_chips, show_pager } = await buildAlbumPage(allAlbums, newPage);
           return screen('ARTIST_ALBUMS', {
-            artist_name:   sess.artistName || '',
-            albums:        albumItems,
+            artist_name: sess.artistName || '',
+            albums:      albumItems,
             page_chips,
-            page_selected,
             show_pager,
           });
         }
