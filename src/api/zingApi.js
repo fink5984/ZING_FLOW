@@ -228,6 +228,46 @@ async function getArtistSingles(artistId) {
   return data.data.albums || [];
 }
 
+// ─── Genre albums (new releases) ─────────────────────────────────────────────
+
+const GENRE_ALBUMS_QUERY = `
+  query GetGenreAlbums(
+    $skip: Int!, $count: Int!,
+    $orderBy: [AlbumOrderByWithRelationInput!],
+    $where: AlbumWhereInput!
+  ) {
+    __typename
+    albums(take: $count, skip: $skip, orderBy: $orderBy, where: $where) {
+      __typename id enName heName releasedAt
+      images { __typename small medium large cdnSmall cdnMedium cdnLarge }
+      artists { __typename enName heName }
+      premium albumType
+    }
+  }
+`;
+
+async function getGenreAlbums(genreId, count = 50) {
+  console.log(`[zingApi] getGenreAlbums genre=${genreId} count=${count}`);
+  const accessToken = await getAccessToken();
+
+  const { data } = await axios.post(
+    GRAPHQL_URL,
+    {
+      operationName: null,
+      variables: {
+        skip:    0,
+        count,
+        orderBy: [{ releasedAt: 'desc' }, { id: 'desc' }],
+        where:   { genres: { some: { id: { equals: Number(genreId) } } } },
+      },
+      query: GENRE_ALBUMS_QUERY,
+    },
+    { headers: buildHeaders(accessToken) },
+  );
+
+  return data.data.albums || [];
+}
+
 // ─── Album detail + tracks ────────────────────────────────────────────────────
 
 const ALBUM_DETAIL_QUERY = `
@@ -312,6 +352,7 @@ module.exports = {
   getAllArtists,
   getArtistAlbums,
   getArtistSingles,
+  getGenreAlbums,
   getAlbumDetail,
   downloadAudioStream,
 };

@@ -2,7 +2,7 @@
   "version": "6.3",
   "data_api_version": "3.0",
   "routing_model": {
-    "SEARCH":        ["ARTIST_LIST"],
+    "SEARCH":        ["ARTIST_LIST", "ARTIST_ALBUMS"],
     "ARTIST_LIST":   ["ARTIST_ALBUMS"],
     "ARTIST_ALBUMS": ["ALBUM_TRACKS"],
     "ALBUM_TRACKS":  ["SUCCESS"]
@@ -12,6 +12,22 @@
     {
       "id": "SEARCH",
       "title": "Zing Music 🎵",
+      "data": {
+        "browse_chips": {
+          "type": "array",
+          "__example__": [
+            { "id": "new_singles", "title": "🆕 סינגלים חדשים" },
+            { "id": "new_albums",  "title": "📀 אלבומים חדשים" }
+          ],
+          "items": {
+            "type": "object",
+            "properties": {
+              "id":    { "type": "string" },
+              "title": { "type": "string" }
+            }
+          }
+        }
+      },
       "layout": {
         "type": "SingleColumnLayout",
         "children": [
@@ -22,6 +38,14 @@
           {
             "type": "TextBody",
             "text": "הזן שם האמן שאתה מחפש (בעברית או באנגלית)"
+          },
+          {
+            "type": "ChipsSelector",
+            "name": "browse_nav",
+            "label": "גלישה מהירה",
+            "min-selected-items": 0,
+            "max-selected-items": 1,
+            "data-source": "${data.browse_chips}"
           },
           {
             "type": "Form",

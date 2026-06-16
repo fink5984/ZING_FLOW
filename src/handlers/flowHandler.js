@@ -14,7 +14,7 @@
  */
 
 const axios = require('axios');
-const { getAllArtists, getArtistAlbums, getArtistSingles, getAlbumDetail } = require('../api/zingApi');
+const { getAllArtists, getArtistAlbums, getArtistSingles, getGenreAlbums, getAlbumDetail } = require('../api/zingApi');
 const { sendTrackToUser, sendAlbumToUser }               = require('../whatsapp/sendMessage');
 
 // ─── In-memory session store ──────────────────────────────────────────────────
@@ -245,8 +245,21 @@ function screen(id, data) {
 
 // ─── Action handlers ──────────────────────────────────────────────────────────
 
+const BROWSE_CHIPS = [
+  {
+    id: 'new_singles',
+    title: '🆕 סינגלים חדשים',
+    'on-select-action': { name: 'data_exchange', payload: { browse_genre: 'new_singles' } },
+  },
+  {
+    id: 'new_albums',
+    title: '📀 אלבומים חדשים',
+    'on-select-action': { name: 'data_exchange', payload: { browse_genre: 'new_albums' } },
+  },
+];
+
 async function handleInit(flowToken) {
-  return screen('SEARCH', {});
+  return screen('SEARCH', { browse_chips: BROWSE_CHIPS });
 }
 
 async function handlePing() {
@@ -258,8 +271,35 @@ async function handleDataExchange(flowToken, currentScreen, payload) {
 
   switch (currentScreen) {
 
-    // ── 1. Search → return artist list ──────────────────────────────────────
+    // ── 1. Search → return artist list OR quick browse ──────────────────────
     case 'SEARCH': {
+      // Quick browse chips (new singles / new albums)
+      const { browse_genre } = payload;
+      if (browse_genre === 'new_singles' || browse_genre === 'new_albums') {
+        const genreId = browse_genre === 'new_singles' ? 36 : 34;
+        const label   = browse_genre === 'new_singles' ? '🆕 סינגלים חדשים' : '📀 אלבומים חדשים';
+        console.log(`[handler] SEARCH browse_genre=${browse_genre} (genreId=${genreId})`);
+        const items = await getGenreAlbums(genreId, 50);
+        console.log(`[handler] genre browse → ${items.length} items`);
+        setSession(flowToken, {
+          artistName:  label,
+          allAlbums:   items,
+          allSingles:  [],
+          contentType: 'albums',
+          albumPage:   0,
+        });
+        const { items: albumItems, page_chips, show_pager } = await buildAlbumPage(items, 0);
+        return screen('ARTIST_ALBUMS', {
+          artist_name:        label,
+          albums:             albumItems,
+          page_chips,
+          show_pager,
+          type_chips:         makeTypeChips(),
+          show_type_selector: false,
+          content_subtitle:   `${items.length} פריטים`,
+        });
+      }
+
       const query = (payload.artist_search || '').trim();
       console.log(`[handler] SEARCH query="${query}"`);
       let all = await getAllArtists(query);
