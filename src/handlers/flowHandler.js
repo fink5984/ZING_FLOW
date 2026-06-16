@@ -115,10 +115,15 @@ async function fetchAllBase64(urls, limit = 50) {
 
 const PAGE_SIZE = 50;
 
-/** Builds an array of chip items for page navigation. */
+/** Builds an array of chip items for page navigation (always >= 2 items). */
 function makePageChips(total) {
   const n = Math.ceil(total / PAGE_SIZE);
-  return Array.from({ length: n }, (_, i) => ({ id: String(i), title: String(i + 1) }));
+  const chips = Array.from({ length: n }, (_, i) => ({ id: String(i), title: String(i + 1) }));
+  // ChipsSelector requires min 2 items — pad with a disabled placeholder if only 1 page
+  if (chips.length < 2) {
+    chips.push({ id: '__end__', title: '·', enabled: false });
+  }
+  return chips;
 }
 
 /** Returns one page of artist items (Base64 images) — no nav items in the list. */
@@ -271,10 +276,8 @@ async function handleDataExchange(flowToken, currentScreen, payload) {
       if (!artistId || artistId === '__no_results__') {
         const chipRaw  = payload.selected_page;
         const chipArr  = Array.isArray(chipRaw) ? chipRaw : (chipRaw ? [chipRaw] : []);
-        const chipPage = chipArr.length > 0 ? chipArr[chipArr.length - 1] : null;
+        const chipPage = chipArr.filter(c => c !== '__end__').pop() ?? null;
         if (chipPage !== null) {
-          const sess       = getSession(flowToken);
-          const allArtists = sess.allArtists || [];
           const newPage    = Math.max(0, Math.min(Number(chipPage), Math.ceil(allArtists.length / PAGE_SIZE) - 1));
           setSession(flowToken, { artistPage: newPage });
           const { items: artistItems, subtitle, page_chips, show_pager } = await buildArtistPage(allArtists, newPage);
@@ -326,7 +329,7 @@ async function handleDataExchange(flowToken, currentScreen, payload) {
       if (!albumId) {
         const chipRaw  = payload.selected_page;
         const chipArr  = Array.isArray(chipRaw) ? chipRaw : (chipRaw ? [chipRaw] : []);
-        const chipPage = chipArr.length > 0 ? chipArr[chipArr.length - 1] : null;
+        const chipPage = chipArr.filter(c => c !== '__end__').pop() ?? null;
         if (chipPage !== null) {
           const sess      = getSession(flowToken);
           const allAlbums = sess.allAlbums || [];

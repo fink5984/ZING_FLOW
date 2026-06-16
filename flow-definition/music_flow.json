@@ -129,7 +129,6 @@
                 "label": "עמוד",
                 "min-selected-items": 0,
                 "max-selected-items": 2,
-                "visible": "${data.show_pager}",
                 "data-source": "${data.page_chips}"
               },
               {
@@ -220,7 +219,6 @@
                 "label": "עמוד",
                 "min-selected-items": 0,
                 "max-selected-items": 2,
-                "visible": "${data.show_pager}",
                 "data-source": "${data.page_chips}"
               },
               {
