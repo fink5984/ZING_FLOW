@@ -110,6 +110,13 @@
           "items": { "type": "string" }
         }
       },
+      "layout": {
+        "type": "SingleColumnLayout",
+        "children": [
+          {
+            "type": "TextBody",
+            "text": "${data.subtitle}"
+          },
           {
             "type": "ChipsSelector",
             "name": "page_nav",
