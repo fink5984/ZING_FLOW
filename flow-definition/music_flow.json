@@ -117,19 +117,19 @@
             "name": "artist_form",
             "children": [
               {
+                "type": "ChipsSelector",
+                "name": "selected_page",
+                "label": "עמוד",
+                "min-selected-items": 0,
+                "max-selected-items": 1,
+                "data-source": "${data.page_chips}"
+              },
+              {
                 "type": "RadioButtonsGroup",
                 "name": "selected_artist",
                 "label": "אמנים",
                 "required": false,
                 "data-source": "${data.artists}"
-              },
-              {
-                "type": "ChipsSelector",
-                "name": "selected_page",
-                "label": "עמוד",
-                "min-selected-items": 0,
-                "max-selected-items": 2,
-                "data-source": "${data.page_chips}"
               },
               {
                 "type": "Footer",
@@ -207,19 +207,19 @@
             "name": "album_form",
             "children": [
               {
+                "type": "ChipsSelector",
+                "name": "selected_page",
+                "label": "עמוד",
+                "min-selected-items": 0,
+                "max-selected-items": 1,
+                "data-source": "${data.page_chips}"
+              },
+              {
                 "type": "RadioButtonsGroup",
                 "name": "selected_album",
                 "label": "בחר אלבום",
                 "required": false,
                 "data-source": "${data.albums}"
-              },
-              {
-                "type": "ChipsSelector",
-                "name": "selected_page",
-                "label": "עמוד",
-                "min-selected-items": 0,
-                "max-selected-items": 2,
-                "data-source": "${data.page_chips}"
               },
               {
                 "type": "Footer",
