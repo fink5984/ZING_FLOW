@@ -103,28 +103,27 @@
         "show_pager": {
           "type": "boolean",
           "__example__": true
+        },
+        "page_selected": {
+          "type": "array",
+          "__example__": ["0"],
+          "items": { "type": "string" }
         }
       },
-      "layout": {
-        "type": "SingleColumnLayout",
-        "children": [
           {
-            "type": "TextBody",
-            "text": "${data.subtitle}"
+            "type": "ChipsSelector",
+            "name": "page_nav",
+            "label": "עמוד",
+            "min-selected-items": 0,
+            "max-selected-items": 1,
+            "visible": "${data.show_pager}",
+            "init-value": "${data.page_selected}",
+            "data-source": "${data.page_chips}"
           },
           {
             "type": "Form",
             "name": "artist_form",
             "children": [
-              {
-                "type": "ChipsSelector",
-                "name": "selected_page",
-                "label": "עמוד",
-                "min-selected-items": 0,
-                "max-selected-items": 1,
-                "visible": "${data.show_pager}",
-                "data-source": "${data.page_chips}"
-              },
               {
                 "type": "RadioButtonsGroup",
                 "name": "selected_artist",
@@ -134,12 +133,11 @@
               },
               {
                 "type": "Footer",
-                "label": "בחר",
+                "label": "בחר אמן",
                 "on-click-action": {
                   "name": "data_exchange",
                   "payload": {
-                    "selected_artist": "${form.selected_artist}",
-                    "selected_page":   "${form.selected_page}"
+                    "selected_artist": "${form.selected_artist}"
                   }
                 }
               }
@@ -194,6 +192,11 @@
         "show_pager": {
           "type": "boolean",
           "__example__": true
+        },
+        "page_selected": {
+          "type": "array",
+          "__example__": ["0"],
+          "items": { "type": "string" }
         }
       },
       "layout": {
@@ -204,18 +207,19 @@
             "text": "${data.artist_name}"
           },
           {
+            "type": "ChipsSelector",
+            "name": "page_nav",
+            "label": "עמוד",
+            "min-selected-items": 0,
+            "max-selected-items": 1,
+            "visible": "${data.show_pager}",
+            "init-value": "${data.page_selected}",
+            "data-source": "${data.page_chips}"
+          },
+          {
             "type": "Form",
             "name": "album_form",
             "children": [
-              {
-                "type": "ChipsSelector",
-                "name": "selected_page",
-                "label": "עמוד",
-                "min-selected-items": 0,
-                "max-selected-items": 1,
-                "visible": "${data.show_pager}",
-                "data-source": "${data.page_chips}"
-              },
               {
                 "type": "RadioButtonsGroup",
                 "name": "selected_album",
@@ -225,12 +229,11 @@
               },
               {
                 "type": "Footer",
-                "label": "בחר",
+                "label": "בחר אלבום",
                 "on-click-action": {
                   "name": "data_exchange",
                   "payload": {
-                    "selected_album": "${form.selected_album}",
-                    "selected_page":  "${form.selected_page}"
+                    "selected_album": "${form.selected_album}"
                   }
                 }
               }

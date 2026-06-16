@@ -115,10 +115,20 @@ async function fetchAllBase64(urls, limit = 50) {
 
 const PAGE_SIZE = 50;
 
-/** Builds an array of chip items for page navigation (always >= 2 items). */
+/** Builds an array of chip items for page navigation (always >= 2 items).
+ *  Each chip carries its own on-select-action so tapping it immediately
+ *  sends a data_exchange to the server — no footer button needed.
+ */
 function makePageChips(total) {
   const n = Math.ceil(total / PAGE_SIZE);
-  const chips = Array.from({ length: n }, (_, i) => ({ id: String(i), title: String(i + 1) }));
+  const chips = Array.from({ length: n }, (_, i) => ({
+    id: String(i),
+    title: String(i + 1),
+    'on-select-action': {
+      name: 'data_exchange',
+      payload: { selected_page: String(i) },
+    },
+  }));
   // ChipsSelector requires min 2 items — pad with a disabled placeholder if only 1 page
   if (chips.length < 2) {
     chips.push({ id: '__end__', title: '·', enabled: false });
@@ -140,8 +150,9 @@ async function buildArtistPage(allArtists, page) {
   return {
     items,
     subtitle,
-    page_chips: makePageChips(total),
-    show_pager: totalPages >= 2,
+    page_chips:    makePageChips(total),
+    page_selected: [String(page)],
+    show_pager:    totalPages >= 2,
   };
 }
 
@@ -156,8 +167,9 @@ async function buildAlbumPage(allAlbums, page) {
   const totalPages = Math.ceil(allAlbums.length / PAGE_SIZE);
   return {
     items,
-    page_chips: makePageChips(allAlbums.length),
-    show_pager: totalPages >= 2,
+    page_chips:    makePageChips(allAlbums.length),
+    page_selected: [String(page)],
+    show_pager:    totalPages >= 2,
   };
 }
 
@@ -263,8 +275,8 @@ async function handleDataExchange(flowToken, currentScreen, payload) {
       const sorted = sortByName(all);
       setSession(flowToken, { allArtists: sorted, artistPage: 0 });
 
-      const { items: artistItems, subtitle, page_chips, show_pager } = await buildArtistPage(sorted, 0);
-      return screen('ARTIST_LIST', { artists: artistItems, subtitle, page_chips, show_pager });
+      const { items: artistItems, subtitle, page_chips, page_selected, show_pager } = await buildArtistPage(sorted, 0);
+      return screen('ARTIST_LIST', { artists: artistItems, subtitle, page_chips, page_selected, show_pager });
     }
 
     // ── 2. Artist list navigation OR artist selected ────────────────────────
@@ -278,10 +290,12 @@ async function handleDataExchange(flowToken, currentScreen, payload) {
         const chipArr  = Array.isArray(chipRaw) ? chipRaw : (chipRaw ? [chipRaw] : []);
         const chipPage = chipArr.filter(c => c !== '__end__').pop() ?? null;
         if (chipPage !== null) {
+          const sess       = getSession(flowToken);
+          const allArtists = sess.allArtists || [];
           const newPage    = Math.max(0, Math.min(Number(chipPage), Math.ceil(allArtists.length / PAGE_SIZE) - 1));
           setSession(flowToken, { artistPage: newPage });
-          const { items: artistItems, subtitle, page_chips, show_pager } = await buildArtistPage(allArtists, newPage);
-          return screen('ARTIST_LIST', { artists: artistItems, subtitle, page_chips, show_pager });
+          const { items: artistItems, subtitle, page_chips, page_selected, show_pager } = await buildArtistPage(allArtists, newPage);
+          return screen('ARTIST_LIST', { artists: artistItems, subtitle, page_chips, page_selected, show_pager });
         }
         return screen('SEARCH', {});
       }
@@ -311,11 +325,12 @@ async function handleDataExchange(flowToken, currentScreen, payload) {
         albumPage:  0,
       });
 
-      const { items: albumItems, page_chips, show_pager } = await buildAlbumPage(allAlbums, 0);
+      const { items: albumItems, page_chips, page_selected, show_pager } = await buildAlbumPage(allAlbums, 0);
       return screen('ARTIST_ALBUMS', {
-        artist_name: displayName(artist),
-        albums:      albumItems,
+        artist_name:   displayName(artist),
+        albums:        albumItems,
         page_chips,
+        page_selected,
         show_pager,
       });
     }
@@ -335,11 +350,12 @@ async function handleDataExchange(flowToken, currentScreen, payload) {
           const allAlbums = sess.allAlbums || [];
           const newPage   = Math.max(0, Math.min(Number(chipPage), Math.ceil(allAlbums.length / PAGE_SIZE) - 1));
           setSession(flowToken, { albumPage: newPage });
-          const { items: albumItems, page_chips, show_pager } = await buildAlbumPage(allAlbums, newPage);
+          const { items: albumItems, page_chips, page_selected, show_pager } = await buildAlbumPage(allAlbums, newPage);
           return screen('ARTIST_ALBUMS', {
-            artist_name: sess.artistName || '',
-            albums:      albumItems,
+            artist_name:   sess.artistName || '',
+            albums:        albumItems,
             page_chips,
+            page_selected,
             show_pager,
           });
         }
