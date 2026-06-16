@@ -135,8 +135,8 @@ async function buildArtistPage(allArtists, page) {
   return {
     items,
     subtitle,
-    page_chips:    makePageChips(total),
-    page_selected: [String(page)],
+    page_chips: makePageChips(total),
+    show_pager: totalPages >= 2,
   };
 }
 
@@ -148,10 +148,11 @@ async function buildAlbumPage(allAlbums, page) {
   const items     = pageItems.map((a, i) =>
     albumItem(a, a.albumType === 'SINGLE' ? 'single' : 'album', b64s[i])
   );
+  const totalPages = Math.ceil(allAlbums.length / PAGE_SIZE);
   return {
     items,
-    page_chips:    makePageChips(allAlbums.length),
-    page_selected: [String(page)],
+    page_chips: makePageChips(allAlbums.length),
+    show_pager: totalPages >= 2,
   };
 }
 
@@ -257,8 +258,8 @@ async function handleDataExchange(flowToken, currentScreen, payload) {
       const sorted = sortByName(all);
       setSession(flowToken, { allArtists: sorted, artistPage: 0 });
 
-      const { items: artistItems, subtitle, page_chips, page_selected } = await buildArtistPage(sorted, 0);
-      return screen('ARTIST_LIST', { artists: artistItems, subtitle, page_chips, page_selected });
+      const { items: artistItems, subtitle, page_chips, show_pager } = await buildArtistPage(sorted, 0);
+      return screen('ARTIST_LIST', { artists: artistItems, subtitle, page_chips, show_pager });
     }
 
     // ── 2. Artist list navigation OR artist selected ────────────────────────
@@ -268,14 +269,16 @@ async function handleDataExchange(flowToken, currentScreen, payload) {
 
       // Pagination navigation (chip selected, no artist)
       if (!artistId || artistId === '__no_results__') {
-        const chipPage = payload.selected_page;
-        if (chipPage !== undefined && chipPage !== null && chipPage !== '') {
+        const chipRaw  = payload.selected_page;
+        const chipArr  = Array.isArray(chipRaw) ? chipRaw : (chipRaw ? [chipRaw] : []);
+        const chipPage = chipArr.length > 0 ? chipArr[chipArr.length - 1] : null;
+        if (chipPage !== null) {
           const sess       = getSession(flowToken);
           const allArtists = sess.allArtists || [];
           const newPage    = Math.max(0, Math.min(Number(chipPage), Math.ceil(allArtists.length / PAGE_SIZE) - 1));
           setSession(flowToken, { artistPage: newPage });
-          const { items: artistItems, subtitle, page_chips, page_selected } = await buildArtistPage(allArtists, newPage);
-          return screen('ARTIST_LIST', { artists: artistItems, subtitle, page_chips, page_selected });
+          const { items: artistItems, subtitle, page_chips, show_pager } = await buildArtistPage(allArtists, newPage);
+          return screen('ARTIST_LIST', { artists: artistItems, subtitle, page_chips, show_pager });
         }
         return screen('SEARCH', {});
       }
@@ -305,12 +308,12 @@ async function handleDataExchange(flowToken, currentScreen, payload) {
         albumPage:  0,
       });
 
-      const { items: albumItems, page_chips, page_selected } = await buildAlbumPage(allAlbums, 0);
+      const { items: albumItems, page_chips, show_pager } = await buildAlbumPage(allAlbums, 0);
       return screen('ARTIST_ALBUMS', {
-        artist_name:   displayName(artist),
-        albums:        albumItems,
+        artist_name: displayName(artist),
+        albums:      albumItems,
         page_chips,
-        page_selected,
+        show_pager,
       });
     }
 
@@ -321,18 +324,20 @@ async function handleDataExchange(flowToken, currentScreen, payload) {
 
       // Pagination navigation (chip selected, no album)
       if (!albumId) {
-        const chipPage = payload.selected_page;
-        if (chipPage !== undefined && chipPage !== null && chipPage !== '') {
+        const chipRaw  = payload.selected_page;
+        const chipArr  = Array.isArray(chipRaw) ? chipRaw : (chipRaw ? [chipRaw] : []);
+        const chipPage = chipArr.length > 0 ? chipArr[chipArr.length - 1] : null;
+        if (chipPage !== null) {
           const sess      = getSession(flowToken);
           const allAlbums = sess.allAlbums || [];
           const newPage   = Math.max(0, Math.min(Number(chipPage), Math.ceil(allAlbums.length / PAGE_SIZE) - 1));
           setSession(flowToken, { albumPage: newPage });
-          const { items: albumItems, page_chips, page_selected } = await buildAlbumPage(allAlbums, newPage);
+          const { items: albumItems, page_chips, show_pager } = await buildAlbumPage(allAlbums, newPage);
           return screen('ARTIST_ALBUMS', {
-            artist_name:   sess.artistName || '',
-            albums:        albumItems,
+            artist_name: sess.artistName || '',
+            albums:      albumItems,
             page_chips,
-            page_selected,
+            show_pager,
           });
         }
         return screen('SEARCH', {});

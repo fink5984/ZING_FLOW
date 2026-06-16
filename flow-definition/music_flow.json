@@ -100,10 +100,9 @@
             }
           }
         },
-        "page_selected": {
-          "type": "array",
-          "__example__": ["0"],
-          "items": { "type": "string" }
+        "show_pager": {
+          "type": "boolean",
+          "__example__": true
         }
       },
       "layout": {
@@ -125,13 +124,13 @@
                 "data-source": "${data.artists}"
               },
               {
-                "type": "ChipSelector",
+                "type": "ChipsSelector",
                 "name": "selected_page",
                 "label": "עמוד",
-                "min-selected-items": 0,
-                "max-selected-items": 1,
-                "data-source": "${data.page_chips}",
-                "init-value": "${data.page_selected}"
+                "min-selected-items": "0",
+                "max-selected-items": "2",
+                "visible": "${data.show_pager}",
+                "data-source": "${data.page_chips}"
               },
               {
                 "type": "Footer",
@@ -192,10 +191,9 @@
             }
           }
         },
-        "page_selected": {
-          "type": "array",
-          "__example__": ["0"],
-          "items": { "type": "string" }
+        "show_pager": {
+          "type": "boolean",
+          "__example__": true
         }
       },
       "layout": {
@@ -217,13 +215,13 @@
                 "data-source": "${data.albums}"
               },
               {
-                "type": "ChipSelector",
+                "type": "ChipsSelector",
                 "name": "selected_page",
                 "label": "עמוד",
-                "min-selected-items": 0,
-                "max-selected-items": 1,
-                "data-source": "${data.page_chips}",
-                "init-value": "${data.page_selected}"
+                "min-selected-items": "0",
+                "max-selected-items": "2",
+                "visible": "${data.show_pager}",
+                "data-source": "${data.page_chips}"
               },
               {
                 "type": "Footer",
