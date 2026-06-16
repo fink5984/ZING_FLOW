@@ -40,8 +40,6 @@
             "text": "הזן שם האמן שאתה מחפש (בעברית או באנגלית)"
           },
           {
-            "type": "ChipsSelector",
-          {
             "type": "Form",
             "name": "search_form",
             "children": [
