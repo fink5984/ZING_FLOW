@@ -46,7 +46,9 @@ module.exports.getSession = getSession;
 
 function fmtDuration(seconds) {
   if (!seconds) return '';
-  return `${Math.floor(seconds / 60)}:${String(seconds % 60).padStart(2, '0')}`;
+  const m = Math.floor(seconds / 60);
+  const s = Math.floor(seconds % 60);
+  return `${m}:${String(s).padStart(2, '0')}`;
 }
 
 function isImageUrl(u) {
@@ -207,14 +209,15 @@ function albumItem(a, type, b64) {
   return item;
 }
 
-function trackItem(t) {
+function trackItem(t, b64) {
   const dur = fmtDuration(t.duration);
-  // Track lists can be 30+ items; omitting images keeps the response small.
-  return {
+  const item = {
     id:          String(t.id),
     title:       displayName(t),
     description: dur || undefined,
   };
+  if (b64) item.image = b64;
+  return item;
 }
 
 // ─── Screen response builders ─────────────────────────────────────────────────
@@ -379,7 +382,7 @@ async function handleDataExchange(flowToken, currentScreen, payload) {
       };
       if (albumImgB64) dlItem.image = albumImgB64;
 
-      const trackItems = [dlItem, ...sortedTracks.map(trackItem)];
+      const trackItems = [dlItem, ...sortedTracks.map(t => trackItem(t, albumImgB64))];
 
       return screen('ALBUM_TRACKS', {
         album_name: displayName(album),
