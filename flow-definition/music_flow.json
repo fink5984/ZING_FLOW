@@ -41,16 +41,18 @@
           },
           {
             "type": "ChipsSelector",
-            "name": "browse_nav",
-            "label": "גלישה מהירה",
-            "min-selected-items": 0,
-            "max-selected-items": 1,
-            "data-source": "${data.browse_chips}"
-          },
           {
             "type": "Form",
             "name": "search_form",
             "children": [
+              {
+                "type": "ChipsSelector",
+                "name": "browse_nav",
+                "label": "גלישה מהירה",
+                "min-selected-items": 0,
+                "max-selected-items": 1,
+                "data-source": "${data.browse_chips}"
+              },
               {
                 "type": "TextInput",
                 "name": "artist_search",
@@ -65,7 +67,8 @@
                 "on-click-action": {
                   "name": "data_exchange",
                   "payload": {
-                    "artist_search": "${form.artist_search}"
+                    "artist_search": "${form.artist_search}",
+                    "browse_nav":    "${form.browse_nav}"
                   }
                 }
               }

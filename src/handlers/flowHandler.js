@@ -246,16 +246,8 @@ function screen(id, data) {
 // ─── Action handlers ──────────────────────────────────────────────────────────
 
 const BROWSE_CHIPS = [
-  {
-    id: 'new_singles',
-    title: '🆕 סינגלים חדשים',
-    'on-select-action': { name: 'data_exchange', payload: { browse_genre: 'new_singles' } },
-  },
-  {
-    id: 'new_albums',
-    title: '📀 אלבומים חדשים',
-    'on-select-action': { name: 'data_exchange', payload: { browse_genre: 'new_albums' } },
-  },
+  { id: 'new_singles', title: '🆕 סינגלים חדשים' },
+  { id: 'new_albums',  title: '📀 אלבומים חדשים' },
 ];
 
 async function handleInit(flowToken) {
@@ -273,8 +265,11 @@ async function handleDataExchange(flowToken, currentScreen, payload) {
 
     // ── 1. Search → return artist list OR quick browse ──────────────────────
     case 'SEARCH': {
-      // Quick browse chips (new singles / new albums)
-      const { browse_genre } = payload;
+      // Quick browse chips (new singles / new albums) — sent via form submit
+      const browseRaw = payload.browse_nav;
+      const browseArr = Array.isArray(browseRaw) ? browseRaw : (browseRaw ? [browseRaw] : []);
+      const browse_genre = browseArr[0] ?? null;
+
       if (browse_genre === 'new_singles' || browse_genre === 'new_albums') {
         const genreId = browse_genre === 'new_singles' ? 36 : 34;
         const label   = browse_genre === 'new_singles' ? '🆕 סינגלים חדשים' : '📀 אלבומים חדשים';
