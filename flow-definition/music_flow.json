@@ -84,6 +84,26 @@
         "subtitle": {
           "type": "string",
           "__example__": "נמצאו 120 אמנים"
+        },
+        "page_chips": {
+          "type": "array",
+          "__example__": [
+            { "id": "0", "title": "1" },
+            { "id": "1", "title": "2" },
+            { "id": "2", "title": "3" }
+          ],
+          "items": {
+            "type": "object",
+            "properties": {
+              "id":    { "type": "string" },
+              "title": { "type": "string" }
+            }
+          }
+        },
+        "page_selected": {
+          "type": "array",
+          "__example__": ["0"],
+          "items": { "type": "string" }
         }
       },
       "layout": {
@@ -101,16 +121,26 @@
                 "type": "RadioButtonsGroup",
                 "name": "selected_artist",
                 "label": "אמנים",
-                "required": true,
+                "required": false,
                 "data-source": "${data.artists}"
               },
               {
+                "type": "ChipSelector",
+                "name": "selected_page",
+                "label": "עמוד",
+                "min-selected-items": 0,
+                "max-selected-items": 1,
+                "data-source": "${data.page_chips}",
+                "init-value": "${data.page_selected}"
+              },
+              {
                 "type": "Footer",
-                "label": "בחר אמן",
+                "label": "בחר",
                 "on-click-action": {
                   "name": "data_exchange",
                   "payload": {
-                    "selected_artist": "${form.selected_artist}"
+                    "selected_artist": "${form.selected_artist}",
+                    "selected_page":   "${form.selected_page}"
                   }
                 }
               }
@@ -147,6 +177,25 @@
               "image":       { "type": "string" }
             }
           }
+        },
+        "page_chips": {
+          "type": "array",
+          "__example__": [
+            { "id": "0", "title": "1" },
+            { "id": "1", "title": "2" }
+          ],
+          "items": {
+            "type": "object",
+            "properties": {
+              "id":    { "type": "string" },
+              "title": { "type": "string" }
+            }
+          }
+        },
+        "page_selected": {
+          "type": "array",
+          "__example__": ["0"],
+          "items": { "type": "string" }
         }
       },
       "layout": {
@@ -164,16 +213,26 @@
                 "type": "RadioButtonsGroup",
                 "name": "selected_album",
                 "label": "בחר אלבום",
-                "required": true,
+                "required": false,
                 "data-source": "${data.albums}"
               },
               {
+                "type": "ChipSelector",
+                "name": "selected_page",
+                "label": "עמוד",
+                "min-selected-items": 0,
+                "max-selected-items": 1,
+                "data-source": "${data.page_chips}",
+                "init-value": "${data.page_selected}"
+              },
+              {
                 "type": "Footer",
-                "label": "בחר אלבום",
+                "label": "בחר",
                 "on-click-action": {
                   "name": "data_exchange",
                   "payload": {
-                    "selected_album": "${form.selected_album}"
+                    "selected_album": "${form.selected_album}",
+                    "selected_page":  "${form.selected_page}"
                   }
                 }
               }

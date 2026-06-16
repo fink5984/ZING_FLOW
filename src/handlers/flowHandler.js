@@ -115,7 +115,13 @@ async function fetchAllBase64(urls, limit = 50) {
 
 const PAGE_SIZE = 50;
 
-/** Returns one page of artist items (Base64 images) + prev/next nav items. */
+/** Builds an array of chip items for page navigation. */
+function makePageChips(total) {
+  const n = Math.ceil(total / PAGE_SIZE);
+  return Array.from({ length: n }, (_, i) => ({ id: String(i), title: String(i + 1) }));
+}
+
+/** Returns one page of artist items (Base64 images) — no nav items in the list. */
 async function buildArtistPage(allArtists, page) {
   const start     = page * PAGE_SIZE;
   const pageItems = allArtists.slice(start, start + PAGE_SIZE);
@@ -123,17 +129,18 @@ async function buildArtistPage(allArtists, page) {
   const items     = pageItems.map((a, i) => artistItem(a, b64s[i]));
   const total      = allArtists.length;
   const totalPages = Math.ceil(total / PAGE_SIZE);
-  if (page > 0)
-    items.unshift({ id: '__prev_page__', title: `← עמוד קודם`, description: `עמוד ${page} מתוך ${totalPages}` });
-  if (start + pageItems.length < total)
-    items.push({ id: '__next_page__', title: `עמוד הבא →`, description: `${total - start - pageItems.length} אמנים נוספים` });
-  const subtitle = totalPages > 1
+  const subtitle   = totalPages > 1
     ? `עמוד ${page + 1} מתוך ${totalPages} | ${total} אמנים`
     : `נמצאו ${total} אמנים`;
-  return { items, subtitle };
+  return {
+    items,
+    subtitle,
+    page_chips:    makePageChips(total),
+    page_selected: [String(page)],
+  };
 }
 
-/** Returns one page of album items (Base64 images) + prev/next nav items. */
+/** Returns one page of album items (Base64 images) — no nav items in the list. */
 async function buildAlbumPage(allAlbums, page) {
   const start     = page * PAGE_SIZE;
   const pageItems = allAlbums.slice(start, start + PAGE_SIZE);
@@ -141,13 +148,11 @@ async function buildAlbumPage(allAlbums, page) {
   const items     = pageItems.map((a, i) =>
     albumItem(a, a.albumType === 'SINGLE' ? 'single' : 'album', b64s[i])
   );
-  const total      = allAlbums.length;
-  const totalPages = Math.ceil(total / PAGE_SIZE);
-  if (page > 0)
-    items.unshift({ id: '__prev_page__', title: `← עמוד קודם`, description: `עמוד ${page} מתוך ${totalPages}` });
-  if (start + pageItems.length < total)
-    items.push({ id: '__next_page__', title: `עמוד הבא →`, description: `${total - start - pageItems.length} אלבומים נוספים` });
-  return items;
+  return {
+    items,
+    page_chips:    makePageChips(allAlbums.length),
+    page_selected: [String(page)],
+  };
 }
 
 function displayName(obj) {
@@ -252,8 +257,8 @@ async function handleDataExchange(flowToken, currentScreen, payload) {
       const sorted = sortByName(all);
       setSession(flowToken, { allArtists: sorted, artistPage: 0 });
 
-      const { items: artistItems, subtitle } = await buildArtistPage(sorted, 0);
-      return screen('ARTIST_LIST', { artists: artistItems, subtitle });
+      const { items: artistItems, subtitle, page_chips, page_selected } = await buildArtistPage(sorted, 0);
+      return screen('ARTIST_LIST', { artists: artistItems, subtitle, page_chips, page_selected });
     }
 
     // ── 2. Artist list navigation OR artist selected ────────────────────────
@@ -261,20 +266,19 @@ async function handleDataExchange(flowToken, currentScreen, payload) {
       const artistId = payload.selected_artist;
       console.log(`[handler] ARTIST_LIST → artistId=${artistId}`);
 
-      // Pagination navigation
-      if (artistId === '__next_page__' || artistId === '__prev_page__') {
-        const sess       = getSession(flowToken);
-        const allArtists = sess.allArtists || [];
-        const newPage    = artistId === '__next_page__'
-          ? (sess.artistPage || 0) + 1
-          : Math.max(0, (sess.artistPage || 0) - 1);
-        setSession(flowToken, { artistPage: newPage });
-        const { items: artistItems, subtitle } = await buildArtistPage(allArtists, newPage);
-        return screen('ARTIST_LIST', { artists: artistItems, subtitle });
+      // Pagination navigation (chip selected, no artist)
+      if (!artistId || artistId === '__no_results__') {
+        const chipPage = payload.selected_page;
+        if (chipPage !== undefined && chipPage !== null && chipPage !== '') {
+          const sess       = getSession(flowToken);
+          const allArtists = sess.allArtists || [];
+          const newPage    = Math.max(0, Math.min(Number(chipPage), Math.ceil(allArtists.length / PAGE_SIZE) - 1));
+          setSession(flowToken, { artistPage: newPage });
+          const { items: artistItems, subtitle, page_chips, page_selected } = await buildArtistPage(allArtists, newPage);
+          return screen('ARTIST_LIST', { artists: artistItems, subtitle, page_chips, page_selected });
+        }
+        return screen('SEARCH', {});
       }
-
-      // User clicked the "no results" pseudo-item → go back to SEARCH
-      if (!artistId || artistId === '__no_results__') return screen('SEARCH', {});
 
       const data   = await getArtistAlbums(artistId);
       const artist = data.artist;
@@ -301,10 +305,12 @@ async function handleDataExchange(flowToken, currentScreen, payload) {
         albumPage:  0,
       });
 
-      const albumItems = await buildAlbumPage(allAlbums, 0);
+      const { items: albumItems, page_chips, page_selected } = await buildAlbumPage(allAlbums, 0);
       return screen('ARTIST_ALBUMS', {
-        artist_name: displayName(artist),
-        albums:      albumItems,
+        artist_name:   displayName(artist),
+        albums:        albumItems,
+        page_chips,
+        page_selected,
       });
     }
 
@@ -313,22 +319,24 @@ async function handleDataExchange(flowToken, currentScreen, payload) {
       const albumId = payload.selected_album;
       console.log(`[handler] ARTIST_ALBUMS → albumId=${albumId}`);
 
-      // Pagination navigation
-      if (albumId === '__next_page__' || albumId === '__prev_page__') {
-        const sess      = getSession(flowToken);
-        const allAlbums = sess.allAlbums || [];
-        const newPage   = albumId === '__next_page__'
-          ? (sess.albumPage || 0) + 1
-          : Math.max(0, (sess.albumPage || 0) - 1);
-        setSession(flowToken, { albumPage: newPage });
-        const albumItems = await buildAlbumPage(allAlbums, newPage);
-        return screen('ARTIST_ALBUMS', {
-          artist_name: sess.artistName || '',
-          albums:      albumItems,
-        });
+      // Pagination navigation (chip selected, no album)
+      if (!albumId) {
+        const chipPage = payload.selected_page;
+        if (chipPage !== undefined && chipPage !== null && chipPage !== '') {
+          const sess      = getSession(flowToken);
+          const allAlbums = sess.allAlbums || [];
+          const newPage   = Math.max(0, Math.min(Number(chipPage), Math.ceil(allAlbums.length / PAGE_SIZE) - 1));
+          setSession(flowToken, { albumPage: newPage });
+          const { items: albumItems, page_chips, page_selected } = await buildAlbumPage(allAlbums, newPage);
+          return screen('ARTIST_ALBUMS', {
+            artist_name:   sess.artistName || '',
+            albums:        albumItems,
+            page_chips,
+            page_selected,
+          });
+        }
+        return screen('SEARCH', {});
       }
-
-      if (!albumId) return screen('SEARCH', {});
 
       const album = await getAlbumDetail(albumId);
       console.log(`[handler] album="${displayName(album)}" tracks=${album.tracks?.length}`);
