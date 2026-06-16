@@ -106,9 +106,48 @@ async function fetchBase64(url) {
  * Fetch Base64 for an array of URLs in parallel, capped at `limit` items.
  * Returns an array of the same length (null for failures / skipped items).
  */
-async function fetchAllBase64(urls, limit = 20) {
+async function fetchAllBase64(urls, limit = 50) {
   const capped = urls.slice(0, limit);
   return Promise.all(capped.map(fetchBase64));
+}
+
+// ─── Pagination helpers ───────────────────────────────────────────────────────
+
+const PAGE_SIZE = 50;
+
+/** Returns one page of artist items (Base64 images) + prev/next nav items. */
+async function buildArtistPage(allArtists, page) {
+  const start     = page * PAGE_SIZE;
+  const pageItems = allArtists.slice(start, start + PAGE_SIZE);
+  const b64s      = await fetchAllBase64(pageItems.map(a => cdnImg(a.images)), PAGE_SIZE);
+  const items     = pageItems.map((a, i) => artistItem(a, b64s[i]));
+  const total      = allArtists.length;
+  const totalPages = Math.ceil(total / PAGE_SIZE);
+  if (page > 0)
+    items.unshift({ id: '__prev_page__', title: `← עמוד קודם`, description: `עמוד ${page} מתוך ${totalPages}` });
+  if (start + pageItems.length < total)
+    items.push({ id: '__next_page__', title: `עמוד הבא →`, description: `${total - start - pageItems.length} אמנים נוספים` });
+  const subtitle = totalPages > 1
+    ? `עמוד ${page + 1} מתוך ${totalPages} | ${total} אמנים`
+    : `נמצאו ${total} אמנים`;
+  return { items, subtitle };
+}
+
+/** Returns one page of album items (Base64 images) + prev/next nav items. */
+async function buildAlbumPage(allAlbums, page) {
+  const start     = page * PAGE_SIZE;
+  const pageItems = allAlbums.slice(start, start + PAGE_SIZE);
+  const b64s      = await fetchAllBase64(pageItems.map(a => cdnImg(a.images)), PAGE_SIZE);
+  const items     = pageItems.map((a, i) =>
+    albumItem(a, a.albumType === 'SINGLE' ? 'single' : 'album', b64s[i])
+  );
+  const total      = allAlbums.length;
+  const totalPages = Math.ceil(total / PAGE_SIZE);
+  if (page > 0)
+    items.unshift({ id: '__prev_page__', title: `← עמוד קודם`, description: `עמוד ${page} מתוך ${totalPages}` });
+  if (start + pageItems.length < total)
+    items.push({ id: '__next_page__', title: `עמוד הבא →`, description: `${total - start - pageItems.length} אלבומים נוספים` });
+  return items;
 }
 
 function displayName(obj) {
@@ -210,30 +249,30 @@ async function handleDataExchange(flowToken, currentScreen, payload) {
         });
       }
 
-      const sorted  = sortByName(all);
-      const MAX_ARTISTS = 20; // RadioButtonsGroup cap
-      const display = sorted.slice(0, MAX_ARTISTS);
+      const sorted = sortByName(all);
+      setSession(flowToken, { allArtists: sorted, artistPage: 0 });
 
-      setSession(flowToken, { artists: display });
-
-      const subtitle = all.length > MAX_ARTISTS
-        ? `מוצגים ${MAX_ARTISTS} מתוך ${all.length} אמנים — צמצם את החיפוש`
-        : `נמצאו ${all.length} אמנים`;
-
-      // Fetch images as Base64 in parallel (WhatsApp requires Base64, not URLs)
-      const imgUrls = display.map(a => cdnImg(a.images));
-      const b64s    = await fetchAllBase64(imgUrls, MAX_ARTISTS);
-
-      return screen('ARTIST_LIST', {
-        artists:  display.map((a, i) => artistItem(a, b64s[i])),
-        subtitle,
-      });
+      const { items: artistItems, subtitle } = await buildArtistPage(sorted, 0);
+      return screen('ARTIST_LIST', { artists: artistItems, subtitle });
     }
 
-    // ── 2. Artist selected → return albums ──────────────────────────────────
+    // ── 2. Artist list navigation OR artist selected ────────────────────────
     case 'ARTIST_LIST': {
       const artistId = payload.selected_artist;
       console.log(`[handler] ARTIST_LIST → artistId=${artistId}`);
+
+      // Pagination navigation
+      if (artistId === '__next_page__' || artistId === '__prev_page__') {
+        const sess       = getSession(flowToken);
+        const allArtists = sess.allArtists || [];
+        const newPage    = artistId === '__next_page__'
+          ? (sess.artistPage || 0) + 1
+          : Math.max(0, (sess.artistPage || 0) - 1);
+        setSession(flowToken, { artistPage: newPage });
+        const { items: artistItems, subtitle } = await buildArtistPage(allArtists, newPage);
+        return screen('ARTIST_LIST', { artists: artistItems, subtitle });
+      }
+
       // User clicked the "no results" pseudo-item → go back to SEARCH
       if (!artistId || artistId === '__no_results__') return screen('SEARCH', {});
 
@@ -242,56 +281,53 @@ async function handleDataExchange(flowToken, currentScreen, payload) {
       console.log(`[handler] artist="${displayName(artist)}" albums=${data.albums?.length}`);
 
       // Combine main albums + featured albums, deduplicate
-      const seen   = new Set();
-      const allAlbums = [...(artist.featuredAlbums || []), ...(data.albums || [])].filter(a => {
+      const seen = new Set();
+      const deduped = [...(artist.featuredAlbums || []), ...(data.albums || [])].filter(a => {
         if (seen.has(a.id)) return false;
         seen.add(a.id);
         return true;
       });
 
-      // Separate albums vs singles by albumType
-      const regularAlbums = allAlbums.filter(a => a.albumType !== 'SINGLE');
-      const singles       = allAlbums.filter(a => a.albumType === 'SINGLE');
-      console.log(`[handler] albums=${regularAlbums.length} singles=${singles.length}`);
-
-      // Sort each group alphabetically, cap combined at 50 to keep payload small
-      const sortedAlb = sortByName(regularAlbums);
-      const sortedSng = sortByName(singles);
-      const MAX_ALBUMS = 50;
-      const combined = [...sortedAlb, ...sortedSng].slice(0, MAX_ALBUMS);
+      // Sort: regular albums first, then singles — each group alphabetically
+      const sortedAlb = sortByName(deduped.filter(a => a.albumType !== 'SINGLE'));
+      const sortedSng = sortByName(deduped.filter(a => a.albumType === 'SINGLE'));
+      const allAlbums = [...sortedAlb, ...sortedSng];
+      console.log(`[handler] albums=${sortedAlb.length} singles=${sortedSng.length}`);
 
       setSession(flowToken, {
         artistId,
         artistName: displayName(artist),
-        albums:     combined,
+        allAlbums,
+        albumPage:  0,
       });
 
-      const MAX_IMG = 20; // max images to fetch (RadioButtonsGroup cap)
-      const combined20 = combined.slice(0, MAX_IMG);
-      const imgUrls20  = combined20.map(a => cdnImg(a.images));
-      const b64s20     = await fetchAllBase64(imgUrls20, MAX_IMG);
-
-      const displayAlbums = [
-        ...sortedAlb.map(a => {
-          const idx = combined20.indexOf(a);
-          return albumItem(a, 'album', idx >= 0 ? b64s20[idx] : null);
-        }),
-        ...sortedSng.map(a => {
-          const idx = combined20.indexOf(a);
-          return albumItem(a, 'single', idx >= 0 ? b64s20[idx] : null);
-        }),
-      ].slice(0, MAX_ALBUMS);
-
+      const albumItems = await buildAlbumPage(allAlbums, 0);
       return screen('ARTIST_ALBUMS', {
         artist_name: displayName(artist),
-        albums:      displayAlbums,
+        albums:      albumItems,
       });
     }
 
-    // ── 3. Album selected → return tracks ───────────────────────────────────
+    // ── 3. Album list navigation OR album selected → return tracks ────────────
     case 'ARTIST_ALBUMS': {
       const albumId = payload.selected_album;
       console.log(`[handler] ARTIST_ALBUMS → albumId=${albumId}`);
+
+      // Pagination navigation
+      if (albumId === '__next_page__' || albumId === '__prev_page__') {
+        const sess      = getSession(flowToken);
+        const allAlbums = sess.allAlbums || [];
+        const newPage   = albumId === '__next_page__'
+          ? (sess.albumPage || 0) + 1
+          : Math.max(0, (sess.albumPage || 0) - 1);
+        setSession(flowToken, { albumPage: newPage });
+        const albumItems = await buildAlbumPage(allAlbums, newPage);
+        return screen('ARTIST_ALBUMS', {
+          artist_name: sess.artistName || '',
+          albums:      albumItems,
+        });
+      }
+
       if (!albumId) return screen('SEARCH', {});
 
       const album = await getAlbumDetail(albumId);
