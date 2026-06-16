@@ -127,8 +127,8 @@
                 "type": "ChipsSelector",
                 "name": "selected_page",
                 "label": "עמוד",
-                "min-selected-items": "0",
-                "max-selected-items": "2",
+                "min-selected-items": 0,
+                "max-selected-items": 2,
                 "visible": "${data.show_pager}",
                 "data-source": "${data.page_chips}"
               },
@@ -218,8 +218,8 @@
                 "type": "ChipsSelector",
                 "name": "selected_page",
                 "label": "עמוד",
-                "min-selected-items": "0",
-                "max-selected-items": "2",
+                "min-selected-items": 0,
+                "max-selected-items": 2,
                 "visible": "${data.show_pager}",
                 "data-source": "${data.page_chips}"
               },
