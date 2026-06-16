@@ -14,7 +14,7 @@
  */
 
 const axios = require('axios');
-const { getAllArtists, getArtistAlbums, getAlbumDetail } = require('../api/zingApi');
+const { getAllArtists, getArtistAlbums, getArtistSingles, getAlbumDetail } = require('../api/zingApi');
 const { sendTrackToUser, sendAlbumToUser }               = require('../whatsapp/sendMessage');
 
 // ─── In-memory session store ──────────────────────────────────────────────────
@@ -316,20 +316,23 @@ async function handleDataExchange(flowToken, currentScreen, payload) {
         return screen('SEARCH', {});
       }
 
-      const data   = await getArtistAlbums(artistId);
-      const artist = data.artist;
-      console.log(`[handler] artist="${displayName(artist)}" albums=${data.albums?.length}`);
+      const [albumsData, singlesRaw] = await Promise.all([
+        getArtistAlbums(artistId),
+        getArtistSingles(artistId),
+      ]);
+      const artist = albumsData.artist;
+      console.log(`[handler] artist="${displayName(artist)}" albums=${albumsData.albums?.length} singles=${singlesRaw.length}`);
 
-      // Combine main albums + featured albums, deduplicate
+      // Deduplicate featured albums with main albums
       const seen = new Set();
-      const deduped = [...(artist.featuredAlbums || []), ...(data.albums || [])].filter(a => {
+      const deduped = [...(artist.featuredAlbums || []), ...(albumsData.albums || [])].filter(a => {
         if (seen.has(a.id)) return false;
         seen.add(a.id);
         return true;
       });
 
-      const sortedAlb = sortByName(deduped.filter(a => a.albumType !== 'SINGLE'));
-      const sortedSng = sortByName(deduped.filter(a => a.albumType === 'SINGLE'));
+      const sortedAlb = sortByName(deduped);
+      const sortedSng = sortByName(singlesRaw);
       console.log(`[handler] albums=${sortedAlb.length} singles=${sortedSng.length}`);
 
       // Default: show albums if available, otherwise singles
