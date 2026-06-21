@@ -22,8 +22,8 @@ const APP_VERSION  = process.env.ZING_APP_VERSION || '3.6.5';
 
 const tokenCache = { accessToken: null, expiresAt: 0 };
 
-async function getAccessToken() {
-  if (tokenCache.accessToken && Date.now() < tokenCache.expiresAt - 60_000) {
+async function getAccessToken(forceRefresh = false) {
+  if (!forceRefresh && tokenCache.accessToken && Date.now() < tokenCache.expiresAt - 60_000) {
     return tokenCache.accessToken;
   }
 
@@ -52,11 +52,54 @@ function buildHeaders(accessToken) {
     'accept':              '*/*',
     'accept-language':     'he-IL,he;q=0.9,en-US;q=0.8,en;q=0.7',
     'authorization':       `Bearer ${accessToken}`,
+    'content-type':        'application/json',
     'origin':              'https://zingmusic.app',
+    'referer':             'https://zingmusic.app/',
+    'sec-fetch-dest':      'empty',
+    'sec-fetch-mode':      'cors',
+    'sec-fetch-site':      'cross-site',
+    'priority':            'u=1, i',
     'x-app-version':       APP_VERSION,
     'x-timezone-offset':   '180',
     'user-agent':          'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36',
   };
+}
+
+function shortJson(value, max = 600) {
+  try {
+    const s = JSON.stringify(value);
+    return s.length > max ? `${s.slice(0, max)}...` : s;
+  } catch {
+    return String(value);
+  }
+}
+
+async function graphqlPost(body, allowRetry = true) {
+  const accessToken = await getAccessToken();
+  try {
+    const { data } = await axios.post(
+      GRAPHQL_URL,
+      body,
+      { headers: buildHeaders(accessToken) },
+    );
+    return data;
+  } catch (err) {
+    const status = err?.response?.status;
+    const data = err?.response?.data;
+    console.error('[zingApi] GraphQL error', status || '-', shortJson(data));
+
+    if (status === 403 && allowRetry) {
+      console.warn('[zingApi] GraphQL 403 - retrying once with fresh token');
+      const fresh = await getAccessToken(true);
+      const { data: retryData } = await axios.post(
+        GRAPHQL_URL,
+        body,
+        { headers: buildHeaders(fresh) },
+      );
+      return retryData;
+    }
+    throw err;
+  }
 }
 
 // ─── Artists ─────────────────────────────────────────────────────────────────
@@ -77,9 +120,8 @@ const ARTISTS_QUERY = `
   }
 `;
 
-async function fetchArtistsPage(query, accessToken, skip, count = 500) {
-  const { data } = await axios.post(
-    GRAPHQL_URL,
+async function fetchArtistsPage(query, skip, count = 500) {
+  const data = await graphqlPost(
     {
       operationName: null,
       variables: {
@@ -95,7 +137,6 @@ async function fetchArtistsPage(query, accessToken, skip, count = 500) {
       },
       query: ARTISTS_QUERY,
     },
-    { headers: buildHeaders(accessToken) },
   );
   return data.data.artists;
 }
@@ -106,13 +147,12 @@ async function fetchArtistsPage(query, accessToken, skip, count = 500) {
  */
 async function getAllArtists(searchQuery = '') {
   console.log(`[zingApi] getAllArtists query="${searchQuery}"`);
-  const accessToken = await getAccessToken();
   const all = [];
   const PAGE = 500;
   let skip = 0;
 
   while (all.length < 2000) {
-    const page = await fetchArtistsPage(searchQuery, accessToken, skip, PAGE);
+    const page = await fetchArtistsPage(searchQuery, skip, PAGE);
     all.push(...page);
     console.log(`[zingApi] fetched page skip=${skip}, got ${page.length} artists (total ${all.length})`);
     if (page.length < PAGE) break;
@@ -156,11 +196,9 @@ const ARTIST_ALBUMS_QUERY = `
 
 async function getArtistAlbums(artistId) {
   console.log(`[zingApi] getArtistAlbums id=${artistId}`);
-  const accessToken = await getAccessToken();
   const id = Number(artistId);
 
-  const { data } = await axios.post(
-    GRAPHQL_URL,
+  const data = await graphqlPost(
     {
       operationName: null,
       variables: {
@@ -178,7 +216,6 @@ async function getArtistAlbums(artistId) {
       },
       query: ARTIST_ALBUMS_QUERY,
     },
-    { headers: buildHeaders(accessToken) },
   );
 
   return data.data;   // { artist, albums, albumsCount }
@@ -204,11 +241,9 @@ const ARTIST_SINGLES_QUERY = `
 
 async function getArtistSingles(artistId) {
   console.log(`[zingApi] getArtistSingles id=${artistId}`);
-  const accessToken = await getAccessToken();
   const id = Number(artistId);
 
-  const { data } = await axios.post(
-    GRAPHQL_URL,
+  const data = await graphqlPost(
     {
       operationName: null,
       variables: {
@@ -222,47 +257,6 @@ async function getArtistSingles(artistId) {
       },
       query: ARTIST_SINGLES_QUERY,
     },
-    { headers: buildHeaders(accessToken) },
-  );
-
-  return data.data.albums || [];
-}
-
-// ─── Genre albums (new releases) ─────────────────────────────────────────────
-
-const GENRE_ALBUMS_QUERY = `
-  query GetGenreAlbums(
-    $skip: Int!, $count: Int!,
-    $orderBy: [AlbumOrderByWithRelationInput!],
-    $where: AlbumWhereInput!
-  ) {
-    __typename
-    albums(take: $count, skip: $skip, orderBy: $orderBy, where: $where) {
-      __typename id enName heName releasedAt
-      images { __typename small medium large cdnSmall cdnMedium cdnLarge }
-      artists { __typename enName heName }
-      premium albumType
-    }
-  }
-`;
-
-async function getGenreAlbums(genreId, count = 50) {
-  console.log(`[zingApi] getGenreAlbums genre=${genreId} count=${count}`);
-  const accessToken = await getAccessToken();
-
-  const { data } = await axios.post(
-    GRAPHQL_URL,
-    {
-      operationName: null,
-      variables: {
-        skip:    0,
-        count,
-        orderBy: [{ releasedAt: 'desc' }, { id: 'desc' }],
-        where:   { genres: { some: { id: { equals: Number(genreId) } } } },
-      },
-      query: GENRE_ALBUMS_QUERY,
-    },
-    { headers: buildHeaders(accessToken) },
   );
 
   return data.data.albums || [];
@@ -299,10 +293,8 @@ const ALBUM_DETAIL_QUERY = `
 
 async function getAlbumDetail(albumId) {
   console.log(`[zingApi] getAlbumDetail id=${albumId}`);
-  const accessToken = await getAccessToken();
 
-  const { data } = await axios.post(
-    GRAPHQL_URL,
+  const data = await graphqlPost(
     {
       operationName: null,
       variables: {
@@ -314,7 +306,6 @@ async function getAlbumDetail(albumId) {
       },
       query: ALBUM_DETAIL_QUERY,
     },
-    { headers: buildHeaders(accessToken) },
   );
 
   return data.data.album;
@@ -352,7 +343,6 @@ module.exports = {
   getAllArtists,
   getArtistAlbums,
   getArtistSingles,
-  getGenreAlbums,
   getAlbumDetail,
   downloadAudioStream,
 };
